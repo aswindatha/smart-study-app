@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Smart Learning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 20px 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .welcome-text {
+            text-align: right;
+        }
+
+        .welcome-text h2 {
+            font-size: 1.2rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .welcome-text p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #f5576c, #f093fb);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(245, 87, 108, 0.3);
+        }
+
+        .logout-btn-secondary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(240, 147, 251, 0.3);
+        }
+
+        /* Tab Navigation */
+        .tab-navigation {
+            display: flex;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 10px;
+            margin: 20px auto 40px;
+            max-width: 1400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            color: #666;
+            font-weight: 500;
+            background: transparent;
+            font-size: 0.9rem;
+        }
+
+        .tab-btn:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .tab-icon {
+            font-size: 1.2rem;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Main container */
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 40px;
+        }
+
+        /* Welcome Section */
+        .welcome-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 40px;
+            margin-bottom: 20px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 300% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        .welcome-content {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .welcome-text-large {
+            flex: 1;
+        }
+
+        .welcome-text-large h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .welcome-text-large p {
+            font-size: 1.1rem;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .welcome-visual {
+            flex: 0 0 300px;
+            text-align: center;
+        }
+
+        .welcome-icon {
+            font-size: 8rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Action Cards */
+        .action-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .action-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .action-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+        }
+
+        .action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 300% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .card-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .card-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .card-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .quick-actions h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .quick-link {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 15px;
+            text-decoration: none;
+            color: #333;
+            transition: all 0.3s ease;
+        }
+
+        .quick-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-3px);
+        }
+
+        .quick-link-icon {
+            font-size: 1.5rem;
+        }
+
+        .quick-link-text {
+            font-weight: 500;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(102, 126, 234, 0.1);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .welcome-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .welcome-visual {
+                order: -1;
+            }
+
+            .stats {
+                justify-content: center;
+            }
+
+            .action-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 0 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">🎓</div>
+                <h1>Smart Learning</h1>
+            </div>
+            <div class="user-info">
+                <div class="welcome-text">
+                    <h2 id="userName">Welcome!</h2>
+                    <p>Student Dashboard</p>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation" id="tabNavigation">
+            <div class="section-header">
+                <h2>📊 My Learning Dashboard</h2>
+                <p>Track your progress and view your learning journey</p>
+            </div>
+
+            <!-- Student Welcome Card -->
+            <div class="welcome-card">
+                <div class="welcome-content">
+                    <div class="welcome-avatar">🎓</div>
+                    <div class="welcome-info">
+                        <h3 id="studentWelcomeName">Welcome back!</h3>
+                        <p id="studentRole">Student</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Overview -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="progressPercentage">0%</div>
+                        <div class="stat-label">Overall Progress</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="cognitiveLevel">0%</div>
+                        <div class="stat-label">Cognitive Load</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👁️</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="engagementRate">0%</div>
+                        <div class="stat-label">Engagement</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏱️</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="totalTimeSpent">0h</div>
+                        <div class="stat-label">Time Spent</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Courses -->
+            <div class="courses-section">
+                <h3>📚 My Courses</h3>
+                <div class="courses-grid" id="studentCoursesGrid">
+                    <!-- Courses will be loaded here -->
+                </div>
+            </div>
+
+            <div class="loading" id="dashboard-loading">
+                <div class="spinner"></div>
+                <p>Loading your dashboard...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Courses Tab -->
+    <div id="courses" class="tab-content">
+        <div class="content-section">
+            <div class="section-header">
+                <h2>📚 Course Management</h2>
+                <p>Browse courses and manage student enrollment</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-card">
+                    <h3><span>📖</span> Browse All Courses</h3>
+                    <button class="btn btn-primary" onclick="loadCourses()">Load All Courses</button>
+                </div>
+
+                <div class="form-card">
+                    <h3><span>✏️</span> Create New Course</h3>
+                    <div class="form-group">
+                        <label for="course-title">Course Title:</label>
+                        <input type="text" id="course-title" placeholder="Enter course title">
+                    </div>
+                    <div class="form-group">
+                        <label for="course-description">Description:</label>
+                        <textarea id="course-description" placeholder="Enter course description"></textarea>
+                    </div>
+                    
+                    <!-- Video Options -->
+                    <div class="form-group">
+                        <label><strong>🎥 Video Content</strong></label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="video-source" value="url" checked onchange="toggleVideoInput('url')">
+                                Use Video URL
+                            </label>
+                            <label>
+                                <input type="radio" name="video-source" value="file" onchange="toggleVideoInput('file')">
+                                Upload Video File
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="video-url-input" class="form-group">
+                        <label for="video-url">Video URL:</label>
+                        <input type="text" id="video-url" placeholder="Enter video URL (YouTube, Vimeo, etc.)">
+                    </div>
+                    
+                    <div id="video-file-input" class="form-group" style="display: none;">
+                        <label for="video-file">Video File:</label>
+                        <input type="file" id="video-file" accept="video/*">
+                    </div>
+                    
+                    <!-- PDF Options -->
+                    <div class="form-group">
+                        <label><strong>📄 PDF Content</strong></label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="pdf-source" value="url" checked onchange="togglePDFInput('url')">
+                                Use PDF URL
+                            </label>
+                            <label>
+                                <input type="radio" name="pdf-source" value="file" onchange="togglePDFInput('file')">
+                                Upload PDF File
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="pdf-url-input" class="form-group">
+                        <label for="pdf-url">PDF URL:</label>
+                        <input type="text" id="pdf-url" placeholder="Enter PDF URL">
+                    </div>
+                    
+                    <div id="pdf-file-input" class="form-group" style="display: none;">
+                        <label for="pdf-file">PDF File:</label>
+                        <input type="file" id="pdf-file" accept=".pdf">
+                    </div>
+                    
+                    <button class="btn btn-success" onclick="createCourse()">Create Course</button>
+                </div>
+            </div>
+
+            <div class="data-grid" id="courses-results">
+                <!-- Courses will be loaded here -->
+            </div>
+
+            <div class="loading" id="courses-loading">
+                <div class="spinner"></div>
+                <p>Loading courses...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Learning Hub Tab -->
+    <div id="learning" class="tab-content">
+        <div class="content-section">
+            <div class="section-header">
+                <h2>🎓 My Learning Hub</h2>
+                <p>Attend courses, take notes, and get AI assistance - all in one place</p>
+            </div>
+
+            <!-- Course Player Section -->
+            <div class="learning-grid">
+                <div class="course-section">
+                    <div class="section-card">
+                        <h3>📚 Current Course</h3>
+                        <div id="currentCourseInfo">
+                            <div class="course-placeholder">
+                                <p>Select a course to begin learning</p>
+                            </div>
+                        </div>
+                        <div class="course-controls">
+                            <div class="form-group">
+                                <label for="courseSelect">Choose Course:</label>
+                                <select id="courseSelect" onchange="loadSelectedCourse()">
+                                    <option value="">Select a course...</option>
+                                </select>
+                            </div>
+                            <div id="coursePlayer" style="display:none;">
+                                <div class="video-container">
+                                    <video id="courseVideo" controls style="width: 100%; max-height: 400px;"></video>
+                                    <!-- Video Progress Display -->
+                                    <div class="video-progress-section">
+                                        <div class="video-progress-bar">
+                                            <div class="video-progress-fill" id="videoProgressFill"></div>
+                                        </div>
+                                        <div class="video-progress-text">
+                                            <span id="videoProgressPercentage">0%</span>
+                                            <span id="videoProgressTime">0:00 / 0:00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="pdf-container" id="pdfContainer" style="display:none;">
+                                    <h4>📄 Course Materials</h4>
+                                    <div class="pdf-controls">
+                                        <button class="btn btn-secondary" onclick="viewPDF()">👁️ View PDF</button>
+                                        <button class="btn btn-secondary" onclick="downloadPDF()">📥 Download PDF</button>
+                                    </div>
+                                    <iframe id="pdfViewer" style="width: 100%; height: 500px;" frameborder="0"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="monitoring-section">
+                    <div class="section-card">
+                        <h3>👁️ Real-time Monitoring</h3>
+                        <div class="monitoring-controls">
+                            <button class="btn btn-primary" onclick="startCamera()">🎥 Start Camera</button>
+                            <button class="btn btn-secondary" onclick="stopCamera()">⏹️ Stop Camera</button>
+                            <button class="btn btn-secondary" onclick="toggleAutoTracking()">🔄 Auto Track</button>
+                        </div>
+                        
+                        <div class="camera-feed">
+                            <video id="cameraVideo" autoplay style="width: 100%; border-radius: 10px;"></video>
+                        </div>
+                        
+                        <div class="metrics-display">
+                            <div class="metric-item">
+                                <span class="metric-label">👁️ Gaze:</span>
+                                <span class="metric-value" id="gazeMetric">0%</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">🎯 Attention:</span>
+                                <span class="metric-value" id="attentionMetric">0%</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">🧠 Cognitive Load:</span>
+                                <span class="metric-value" id="cognitiveMetric">0%</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">💓 Engagement:</span>
+                                <span class="metric-value" id="engagementMetric">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading" id="learning-loading">
+                <div class="spinner"></div>
+                <p>Loading learning hub...</p>
+            </div>
+        </div>
+                </a>
+                <a href="#" class="quick-link" onclick="quickAction('chat')">
+                    <span class="quick-link-icon">💬</span>
+                    <span class="quick-link-text">Quick Chat</span>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let userId = null;
+        let studentId = null;
+        let userName = null;
+
+        // Initialize
+        window.onload = function() {
+            // Get user info from URL parameters or localStorage
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = urlParams.get('user_id') || localStorage.getItem('user_id');
+            studentId = urlParams.get('student_id') || localStorage.getItem('student_id');
+            userName = urlParams.get('user_name') || localStorage.getItem('user_name');
+
+            console.log('Initializing dashboard with:', { userId, studentId, userName });
+
+            if (!userId || !studentId) {
+                console.log('Missing user info, redirecting to login');
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            // Set user info in localStorage for persistence
+            localStorage.setItem('user_id', userId);
+            localStorage.setItem('student_id', studentId);
+            localStorage.setItem('user_name', userName);
+            localStorage.setItem('user_role', 'student');
+
+            // Update UI
+            document.getElementById('userName').textContent = `Welcome, ${userName}!`;
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${userName}! 🎓`;
+
+            // Load dashboard data
+            loadDashboardData();
+            
+            // Load courses immediately
+            loadStudentCourses();
+        };
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                // Get current user from localStorage
+                const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                
+                if (!currentUser.student_id) {
+                    console.error('No student ID found');
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE}/students/${currentUser.student_id}/dashboard`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update stats
+                    document.getElementById('progressStat').textContent = `${(data.progress_percentage * 100).toFixed(1)}%`;
+                    document.getElementById('cognitiveStat').textContent = `${data.cognitive_load_level}%`;
+                    document.getElementById('engagementStat').textContent = '85%'; // Default engagement
+
+                    // Load student's assigned courses
+                    await loadStudentCourses();
+                } else {
+                    console.error('Failed to load dashboard data');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Load student's assigned courses
+        async function loadStudentCourses() {
+            try {
+                console.log('Loading courses from API...');
+                const response = await fetch(`${API_BASE}/courses`);
+                const courses = await response.json();
+                
+                console.log('API Response:', response.ok, courses);
+
+                if (response.ok && courses && courses.length > 0) {
+                    // Get current user info to find their assigned course
+                    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                    
+                    // Display available courses
+                    displayStudentCourses(courses);
+                } else {
+                    console.log('No courses from API, using sample courses');
+                    // Use sample courses for demo
+                    const sampleCourses = [
+                        {
+                            id: 1,
+                            title: "Introduction to Machine Learning",
+                            description: "Learn the fundamentals of machine learning and AI",
+                            video_url: "https://example.com/ml-intro.mp4",
+                            pdf_url: "https://example.com/ml-notes.pdf"
+                        },
+                        {
+                            id: 2,
+                            title: "Web Development Basics",
+                            description: "Master HTML, CSS, and JavaScript fundamentals",
+                            video_url: "https://example.com/web-dev.mp4",
+                            pdf_url: "https://example.com/web-notes.pdf"
+                        },
+                        {
+                            id: 3,
+                            title: "Data Science Fundamentals",
+                            description: "Explore data analysis and visualization techniques",
+                            video_url: "https://example.com/data-science.mp4",
+                            pdf_url: "https://example.com/data-notes.pdf"
+                        }
+                    ];
+                    displayStudentCourses(sampleCourses);
+                }
+            } catch (error) {
+                console.error('Error loading courses:', error);
+                // Show sample courses on error
+                const sampleCourses = [
+                    {
+                        id: 1,
+                        title: "Introduction to Machine Learning",
+                        description: "Learn the fundamentals of machine learning and AI",
+                        video_url: "https://example.com/ml-intro.mp4",
+                        pdf_url: "https://example.com/ml-notes.pdf"
+                    },
+                    {
+                        id: 2,
+                        title: "Web Development Basics",
+                        description: "Master HTML, CSS, and JavaScript fundamentals",
+                        video_url: "https://example.com/web-dev.mp4",
+                        pdf_url: "https://example.com/web-notes.pdf"
+                    }
+                ];
+                displayStudentCourses(sampleCourses);
+            }
+        }
+
+        // Display student courses in the dashboard
+        function displayStudentCourses(courses) {
+            console.log('Displaying courses:', courses);
+            const coursesGrid = document.getElementById('studentCoursesGrid');
+            
+            if (!coursesGrid) {
+                console.error('studentCoursesGrid element not found!');
+                return;
+            }
+            
+            if (!courses || courses.length === 0) {
+                console.log('No courses to display');
+                coursesGrid.innerHTML = '<p>No courses available. Contact your teacher to get assigned courses.</p>';
+                return;
+            }
+
+            console.log('Processing', courses.length, 'courses');
+
+            // Categorize courses based on progress
+            const completedCourses = [];
+            const inProgressCourses = [];
+            const availableCourses = [];
+
+            courses.forEach(course => {
+                // Generate random progress for demo (in real app, this would come from backend)
+                const progress = Math.random() * 100;
+                course.progress = progress;
+                course.progressPercentage = progress.toFixed(1);
+                
+                if (progress >= 100) {
+                    completedCourses.push(course);
+                } else if (progress > 0) {
+                    inProgressCourses.push(course);
+                } else {
+                    availableCourses.push(course);
+                }
+            });
+
+            console.log('Course categories:', {
+                completed: completedCourses.length,
+                inProgress: inProgressCourses.length,
+                available: availableCourses.length
+            });
+
+            // Build HTML with categorized sections
+            let html = '';
+
+            // Completed Courses Section
+            if (completedCourses.length > 0) {
+                html += `
+                    <div class="course-category">
+                        <h3 class="category-title completed">🏆 Completed Courses</h3>
+                        <div class="courses-grid-small">
+                            ${completedCourses.map(course => createCourseCard(course, 'completed')).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // In Progress Courses Section
+            if (inProgressCourses.length > 0) {
+                html += `
+                    <div class="course-category">
+                        <h3 class="category-title in-progress">🔄 In Progress</h3>
+                        <div class="courses-grid-small">
+                            ${inProgressCourses.map(course => createCourseCard(course, 'in-progress')).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Available Courses Section
+            if (availableCourses.length > 0) {
+                html += `
+                    <div class="course-category">
+                        <h3 class="category-title available">📚 Available Courses</h3>
+                        <div class="courses-grid-small">
+                            ${availableCourses.map(course => createCourseCard(course, 'available')).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            console.log('Generated HTML length:', html.length);
+            coursesGrid.innerHTML = html;
+        }
+
+        // Create individual course card HTML
+        function createCourseCard(course, status) {
+            const progressPercentage = course.progressPercentage;
+            const statusText = status === 'completed' ? 'Completed' : 
+                              status === 'in-progress' ? 'In Progress' : 'Not Started';
+            const buttonText = status === 'completed' ? '👁️ Review Course' : 
+                             status === 'in-progress' ? '🔄 Continue Studying' : '🚀 Start Course';
+            const buttonClass = status === 'completed' ? 'review' : 
+                              status === 'in-progress' ? 'continue' : 'start';
+
+            return `
+                <div class="course-card ${status}" onclick="selectCourse(${course.id})">
+                    <div class="course-header">
+                        <h3>${course.title}</h3>
+                        <span class="course-status ${status}">${statusText}</span>
+                    </div>
+                    <p class="course-description">${course.description || 'No description available'}</p>
+                    <div class="course-progress">
+                        <div class="course-progress-fill ${status}" style="width: ${progressPercentage}%"></div>
+                    </div>
+                    <div class="course-progress-text">${progressPercentage}% Complete</div>
+                    <div class="course-materials">
+                        ${course.video_url ? '<span class="material-tag">🎥 Video</span>' : ''}
+                        ${course.pdf_url ? '<span class="material-tag">📄 PDF</span>' : ''}
+                    </div>
+                    <button class="course-btn ${buttonClass}" onclick="event.stopPropagation(); selectCourse(${course.id})">
+                        ${buttonText}
+                    </button>
+                </div>
+            `;
+        }
+
+        // Enroll in and start a course
+        async function enrollInCourse(courseId) {
+            try {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                
+                // Try to enroll if student_id exists
+                if (currentUser.student_id) {
+                    const response = await fetch(`${API_BASE}/students/${currentUser.student_id}/start_course/${courseId}`, {
+                        method: 'POST'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        console.log('Successfully enrolled in course');
+                    } else {
+                        console.warn('Enrollment warning:', data.detail);
+                    }
+                }
+                
+                // Always redirect to learning hub with course parameter
+                window.location.href = `index.html#learning?course=${courseId}`;
+                
+            } catch (error) {
+                console.error('Error enrolling in course:', error);
+                // Fallback: still redirect to learning hub
+                window.location.href = `index.html#learning?course=${courseId}`;
+            }
+        }
+
+        // Enhanced course selection with immediate feedback
+        function selectCourse(courseId) {
+            // Show loading state
+            const courseCard = event.currentTarget;
+            const originalContent = courseCard.innerHTML;
+            courseCard.innerHTML = '<div class="loading-course">🚀 Starting course...</div>';
+            courseCard.style.pointerEvents = 'none';
+            
+            // Load course in dashboard
+            loadCourseInDashboard(courseId);
+            
+            // Restore original content if redirect takes time
+            setTimeout(() => {
+                courseCard.innerHTML = originalContent;
+                courseCard.style.pointerEvents = 'auto';
+            }, 2000);
+        }
+
+        // Load course directly in dashboard
+        async function loadCourseInDashboard(courseId) {
+            try {
+                const response = await fetch(`${API_BASE}/courses`);
+                const courses = await response.json();
+                
+                if (response.ok) {
+                    const course = courses.find(c => c.id == courseId);
+                    if (course) {
+                        currentCourse = course;
+                        showIntegratedLearningHub(course);
+                        
+                        // Auto-start monitoring
+                        setTimeout(() => {
+                            startDashboardCamera();
+                            startRealtimeMonitoring();
+                        }, 1000);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading course:', error);
+            }
+        }
+
+        // Show integrated learning hub
+        function showIntegratedLearningHub(course) {
+            // Hide courses section, show learning hub
+            document.getElementById('studentCoursesSection').style.display = 'none';
+            document.getElementById('integratedLearningHub').style.display = 'block';
+            
+            // Update course info
+            document.getElementById('activeCourseTitle').textContent = course.title;
+            document.getElementById('activeCourseDesc').textContent = course.description || 'No description available';
+            
+            // Show video section if video available
+            if (course.video_url) {
+                document.getElementById('dashboardVideoProgress').style.display = 'block';
+                document.getElementById('dashboardVideoContainer').style.display = 'block';
+                
+                const video = document.getElementById('dashboardCourseVideo');
+                video.src = course.video_url;
+                
+                // Show PDF buttons if PDF available
+                if (course.pdf_url) {
+                    document.getElementById('dashboardPdfSection').style.display = 'block';
+                    document.getElementById('dashboardViewPDFBtn').style.display = 'inline-block';
+                    document.getElementById('dashboardDownloadPDFBtn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('dashboardPdfSection').style.display = 'none';
+                }
+            } else {
+                // No video, hide video sections
+                document.getElementById('dashboardVideoProgress').style.display = 'none';
+                document.getElementById('dashboardVideoContainer').style.display = 'none';
+                
+                // Show PDF if available
+                if (course.pdf_url) {
+                    document.getElementById('dashboardPdfSection').style.display = 'block';
+                    viewDashboardPDF();
+                }
+            }
+            
+            // Load saved progress
+            loadDashboardCourseProgress();
+        }
+
+        // Close learning session
+        function closeLearningSession() {
+            // Stop monitoring
+            stopDashboardCamera();
+            stopRealtimeMonitoring();
+            
+            // Show courses, hide learning hub
+            document.getElementById('integratedLearningHub').style.display = 'none';
+            document.getElementById('studentCoursesSection').style.display = 'block';
+            
+            // Reset video
+            const video = document.getElementById('dashboardCourseVideo');
+            video.pause();
+            video.src = '';
+        }
+
+        // Switch course
+        function switchCourse() {
+            closeLearningSession();
+            // Course selection will be available again
+        }
+
+        // Dashboard video progress tracking
+        let dashboardVideoProgress = 0;
+        let dashboardLastProgressUpdate = 0;
+
+        async function loadDashboardCourseProgress() {
+            if (!currentUser || !currentCourse) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/students/${currentUser.student_id}/course_progress/${currentCourse.id}`);
+                const data = await response.json();
+                
+                if (response.ok && data.progress) {
+                    dashboardVideoProgress = data.progress;
+                    updateDashboardVideoProgressDisplay();
+                    
+                    const video = document.getElementById('dashboardCourseVideo');
+                    if (video && video.duration) {
+                        video.currentTime = (dashboardVideoProgress / 100) * video.duration;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading course progress:', error);
+            }
+        }
+
+        function updateDashboardVideoProgressDisplay() {
+            const progressFill = document.getElementById('dashboardVideoProgressFill');
+            const progressText = document.getElementById('dashboardVideoProgress');
+            const timeText = document.getElementById('dashboardVideoTime');
+            const video = document.getElementById('dashboardCourseVideo');
+            
+            if (progressFill) progressFill.style.width = `${dashboardVideoProgress}%`;
+            if (progressText) progressText.textContent = `${dashboardVideoProgress.toFixed(1)}%`;
+            
+            if (video && !isNaN(video.duration)) {
+                const currentTime = formatDashboardTime(video.currentTime);
+                const duration = formatDashboardTime(video.duration);
+                if (timeText) timeText.textContent = `${currentTime} / ${duration}`;
+            }
+        }
+
+        function formatDashboardTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function onDashboardVideoLoaded() {
+            const video = document.getElementById('dashboardCourseVideo');
+            console.log('Dashboard video loaded, duration:', video.duration);
+            
+            if (dashboardVideoProgress > 0 && video.duration) {
+                video.currentTime = (dashboardVideoProgress / 100) * video.duration;
+            }
+            
+            updateDashboardVideoProgressDisplay();
+        }
+
+        function updateDashboardVideoProgress() {
+            const video = document.getElementById('dashboardCourseVideo');
+            if (!video || !video.duration) return;
+            
+            const progress = (video.currentTime / video.duration) * 100;
+            dashboardVideoProgress = progress;
+            
+            updateDashboardVideoProgressDisplay();
+            
+            // Save progress and update dashboard stats
+            const now = Date.now();
+            const shouldUpdate = Math.abs(progress - dashboardLastProgressUpdate) >= 5 || 
+                                (now - dashboardLastProgressUpdate > 10000 && progress > 0);
+            
+            if (shouldUpdate) {
+                saveDashboardVideoProgress();
+                updateDashboardStats();
+                dashboardLastProgressUpdate = progress;
+            }
+        }
+
+        async function saveDashboardVideoProgress() {
+            if (!currentUser || !currentCourse) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/students/${currentUser.student_id}/update_progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        course_id: currentCourse.id,
+                        progress_percentage: dashboardVideoProgress / 100,
+                        time_spent: Math.floor(document.getElementById('dashboardCourseVideo').currentTime / 60),
+                        cognitive_load_level: parseFloat(document.getElementById('dashboardCognitiveLoad').textContent) || 50,
+                        engagement_level: parseFloat(document.getElementById('dashboardEngagement').textContent) || 85
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('Dashboard progress saved:', dashboardVideoProgress.toFixed(1) + '%');
+                }
+            } catch (error) {
+                console.error('Error saving dashboard progress:', error);
+            }
+        }
+
+        function onDashboardVideoCompleted() {
+            dashboardVideoProgress = 100;
+            updateDashboardVideoProgressDisplay();
+            saveDashboardVideoProgress();
+            updateDashboardStats();
+            
+            alert('🎉 Congratulations! You have completed this course.');
+        }
+
+        // Dashboard PDF functions
+        function viewDashboardPDF() {
+            if (!currentCourse || !currentCourse.pdf_url) return;
+            
+            const pdfContainer = document.getElementById('dashboardPdfContainer');
+            const pdfViewer = document.getElementById('dashboardPdfViewer');
+            
+            pdfViewer.src = currentCourse.pdf_url;
+            pdfContainer.style.display = 'block';
+            
+            const video = document.getElementById('dashboardCourseVideo');
+            if (video) video.style.display = 'none';
+        }
+
+        function downloadDashboardPDF() {
+            if (!currentCourse || !currentCourse.pdf_url) return;
+            
+            const link = document.createElement('a');
+            link.href = currentCourse.pdf_url;
+            link.download = `${currentCourse.title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+            link.target = '_blank';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Dashboard camera and monitoring functions
+        let dashboardStream = null;
+        let dashboardMonitoringInterval = null;
+
+        async function startDashboardCamera() {
+            try {
+                dashboardStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('dashboardVideoFeed');
+                video.srcObject = dashboardStream;
+                
+                document.getElementById('dashboardStartCamBtn').disabled = true;
+                document.getElementById('dashboardStopCamBtn').disabled = false;
+                
+                console.log('Dashboard camera started');
+            } catch (error) {
+                console.error('Error starting dashboard camera:', error);
+            }
+        }
+
+        function stopDashboardCamera() {
+            if (dashboardStream) {
+                dashboardStream.getTracks().forEach(track => track.stop());
+                dashboardStream = null;
+                
+                const video = document.getElementById('dashboardVideoFeed');
+                video.srcObject = null;
+                
+                document.getElementById('dashboardStartCamBtn').disabled = false;
+                document.getElementById('dashboardStopCamBtn').disabled = true;
+                
+                console.log('Dashboard camera stopped');
+            }
+        }
+
+        function toggleDashboardAutoTracking() {
+            const btn = document.getElementById('dashboardAutoTrackBtn');
+            
+            if (dashboardMonitoringInterval) {
+                stopRealtimeMonitoring();
+                btn.textContent = '🔄 Auto Track';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-primary');
+            } else {
+                startRealtimeMonitoring();
+                btn.textContent = '⏸️ Stop Tracking';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-danger');
+            }
+        }
+
+        function startRealtimeMonitoring() {
+            dashboardMonitoringInterval = setInterval(() => {
+                updateDashboardMetrics();
+            }, 2000);
+            
+            console.log('Dashboard real-time monitoring started');
+        }
+
+        function stopRealtimeMonitoring() {
+            if (dashboardMonitoringInterval) {
+                clearInterval(dashboardMonitoringInterval);
+                dashboardMonitoringInterval = null;
+                console.log('Dashboard real-time monitoring stopped');
+            }
+        }
+
+        function updateDashboardMetrics() {
+            // Simulate real-time metrics (in real app, these would come from actual analysis)
+            const gazeScore = 75 + Math.random() * 20;
+            const attentionScore = 70 + Math.random() * 25;
+            const cognitiveLoad = 40 + Math.random() * 30;
+            const engagement = 80 + Math.random() * 15;
+            
+            // Update dashboard metrics display
+            document.getElementById('dashboardGazeScore').textContent = gazeScore.toFixed(1) + '%';
+            document.getElementById('dashboardAttentionScore').textContent = attentionScore.toFixed(1) + '%';
+            document.getElementById('dashboardCognitiveLoad').textContent = cognitiveLoad.toFixed(1) + '%';
+            document.getElementById('dashboardEngagement').textContent = engagement.toFixed(1) + '%';
+            
+            // Update main dashboard stats
+            updateDashboardStats();
+        }
+
+        function updateDashboardStats() {
+            if (!currentUser) return;
+            
+            // Get current metrics from monitoring
+            const cognitiveLoad = parseFloat(document.getElementById('dashboardCognitiveLoad').textContent) || 50;
+            const engagement = parseFloat(document.getElementById('dashboardEngagement').textContent) || 85;
+            
+            // Update main dashboard stats
+            const cognitiveStat = document.getElementById('cognitiveStat');
+            const engagementStat = document.getElementById('engagementStat');
+            
+            if (cognitiveStat) cognitiveStat.textContent = cognitiveLoad.toFixed(1) + '%';
+            if (engagementStat) engagementStat.textContent = engagement.toFixed(1) + '%';
+        }
+
+        // Navigation functions
+        function goToLearning() {
+            window.location.href = `index.html#learning`;
+        }
+
+        function goToCourses() {
+            window.location.href = `index.html#courses`;
+        }
+
+        function goToNotes() {
+            window.location.href = `index.html#notes`;
+        }
+
+        function goToChatbot() {
+            window.location.href = `index.html#chatbot`;
+        }
+
+        function goToFullApp() {
+            window.location.href = 'index.html';
+        }
+
+        function goToAnalytics() {
+            // For now, go to full app and navigate to teacher panel for analytics
+            window.location.href = 'index.html#teacher';
+        }
+
+        // Quick actions
+        function quickAction(action) {
+            switch(action) {
+                case 'dashboard':
+                    loadDashboardData();
+                    break;
+                case 'progress':
+                    window.location.href = `index.html#learning`;
+                    break;
+                case 'notes':
+                    window.location.href = `index.html#notes`;
+                    break;
+                case 'chat':
+                    window.location.href = `index.html#chatbot`;
+                    break;
+            }
+        }
+
+        // Logout
+        function logout() {
+            console.log('Logging out...');
+            // Clear all localStorage data
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('student_id');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('user_role');
+            
+            // Redirect to login page
+            window.location.href = 'auth.html';
+        }
+    </script>
+    <style>
+        /* Student Courses Styles */
+        .student-courses {
+            margin: 40px 0;
+        }
+
+        .student-courses h2 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            text-align: center;
+        }
+
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .course-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .course-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .course-header h3 {
+            color: #333;
+            font-size: 1.3rem;
+            margin: 0;
+        }
+
+        .course-status {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .course-description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .course-progress {
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .course-progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            transition: width 0.5s ease;
+        }
+
+        .course-progress-text {
+            font-size: 0.8rem;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .course-btn.continue {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .course-btn.start {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .course-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Loading state for course selection */
+        .loading-course {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: #667eea;
+            font-weight: 600;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Course Categories */
+        .course-category {
+            margin-bottom: 40px;
+        }
+
+        .category-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0,0,0,0.1);
+        }
+
+        .category-title.completed {
+            color: #22c55e;
+            border-bottom-color: #22c55e;
+        }
+
+        .category-title.in-progress {
+            color: #f59e0b;
+            border-bottom-color: #f59e0b;
+        }
+
+        .category-title.available {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .courses-grid-small {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* Status-specific course card styles */
+        .course-card.completed {
+            border-left: 4px solid #22c55e;
+        }
+
+        .course-card.in-progress {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .course-card.available {
+            border-left: 4px solid #667eea;
+        }
+
+        .course-status.completed {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+
+        .course-status.in-progress {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .course-status.available {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .course-progress-fill.completed {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .course-progress-fill.in-progress {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .course-progress-fill.available {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .course-btn.review {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+
+        .course-btn.continue {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .course-btn.start {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .course-materials {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .material-tag {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .course-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .course-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Student Courses Section Styles */
+        .student-courses-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .student-courses-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 300% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .section-header p {
+            font-size: 1rem;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        /* Integrated Learning Hub Styles */
+        .integrated-learning-hub {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .integrated-learning-hub::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 300% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        .learning-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .learning-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .learning-player {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .active-course-info {
+            text-align: center;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 15px;
+        }
+
+        .active-course-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+        }
+
+        .active-course-info p {
+            color: #666;
+            margin: 0;
+        }
+
+        .monitoring-card {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .monitoring-card h3 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .session-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+    </style>
+</body>
+</html>

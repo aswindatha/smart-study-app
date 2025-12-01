@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses - Smart Learning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 20px 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #666;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        .nav-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .welcome-text {
+            text-align: right;
+        }
+
+        .welcome-text h2 {
+            font-size: 1.2rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .welcome-text p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #f5576c, #f093fb);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(245, 87, 108, 0.3);
+        }
+
+        /* Main container */
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 40px;
+        }
+
+        /* Courses Section */
+        .courses-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .courses-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 300% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .section-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .section-header p {
+            font-size: 1.1rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* Course Enrollment */
+        .enrollment-section {
+            background: rgba(0,0,0,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+        }
+
+        .enrollment-section h3 {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .enrollment-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 20px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group select, .form-group input {
+            padding: 12px;
+            border: 2px solid rgba(0,0,0,0.1);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.8);
+        }
+
+        .form-group select:focus, .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .enroll-btn {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .enroll-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(17, 153, 142, 0.3);
+        }
+
+        /* Courses Grid */
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .course-card {
+            background: rgba(255,255,255,0.8);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .course-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+        }
+
+        .course-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 300% 100%;
+            animation: gradientMove 3s ease infinite;
+        }
+
+        .course-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .course-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .course-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .course-resources {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .resource-link {
+            flex: 1;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .resource-link:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .enroll-action {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .quick-enroll-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .quick-enroll-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(102, 126, 234, 0.1);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Message */
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .enrollment-form {
+                grid-template-columns: 1fr;
+            }
+
+            .courses-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 0 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">🎓</div>
+                <h1>Smart Learning</h1>
+            </div>
+            <nav class="nav-links">
+                <a href="student_dashboard.html" class="nav-link">Dashboard</a>
+                <a href="courses.html" class="nav-link active">Courses</a>
+                <a href="learning.html" class="nav-link">Learning</a>
+                <a href="notes.html" class="nav-link">Notes</a>
+                <a href="chatbot.html" class="nav-link">Chatbot</a>
+            </nav>
+            <div class="user-info">
+                <div class="welcome-text">
+                    <h2 id="userName">Welcome!</h2>
+                    <p>Course Catalog</p>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Courses Section -->
+        <section class="courses-section">
+            <div class="section-header">
+                <h1>📚 Course Catalog</h1>
+                <p>Explore our comprehensive collection of courses and start your learning journey</p>
+            </div>
+
+            <!-- Message -->
+            <div id="message" class="message"></div>
+
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading courses...</p>
+            </div>
+
+            <!-- Course Enrollment -->
+            <div class="enrollment-section">
+                <h3>🎯 Quick Enrollment</h3>
+                <div class="enrollment-form">
+                    <div class="form-group">
+                        <label for="courseSelect">Select Course</label>
+                        <select id="courseSelect">
+                            <option value="">Choose a course...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="studentId">Your Student ID</label>
+                        <input type="number" id="studentId" readonly placeholder="Auto-filled">
+                    </div>
+                    <button id="enrollBtn" class="enroll-btn">Enroll Now</button>
+                </div>
+            </div>
+
+            <!-- Courses Grid -->
+            <div class="courses-grid" id="coursesGrid">
+                <!-- Courses will be loaded here -->
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let userId = null;
+        let studentId = null;
+        let userName = null;
+        let courses = [];
+
+        // Initialize
+        window.onload = function() {
+            // Get user info from localStorage
+            userId = localStorage.getItem('user_id');
+            studentId = localStorage.getItem('student_id');
+            userName = localStorage.getItem('user_name');
+
+            if (!userId || !studentId) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            // Update UI
+            document.getElementById('userName').textContent = `Welcome, ${userName}!`;
+            document.getElementById('studentId').value = studentId;
+
+            // Load courses
+            loadCourses();
+        };
+
+        // Load courses
+        async function loadCourses() {
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/courses`);
+                courses = await response.json();
+
+                if (response.ok) {
+                    populateCourseSelect();
+                    displayCourses();
+                } else {
+                    showMessage('Failed to load courses', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Populate course select dropdown
+        function populateCourseSelect() {
+            const select = document.getElementById('courseSelect');
+            
+            courses.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.title;
+                select.appendChild(option);
+            });
+        }
+
+        // Display courses
+        function displayCourses() {
+            const grid = document.getElementById('coursesGrid');
+            grid.innerHTML = '';
+
+            courses.forEach(course => {
+                const courseCard = document.createElement('div');
+                courseCard.className = 'course-card';
+                courseCard.innerHTML = `
+                    <div class="course-icon">📖</div>
+                    <h3 class="course-title">${course.title}</h3>
+                    <p class="course-description">${course.description}</p>
+                    <div class="course-resources">
+                        ${course.video_url ? `<a href="${course.video_url}" target="_blank" class="resource-link">🎥 Video</a>` : ''}
+                        ${course.pdf_url ? `<a href="${course.pdf_url}" target="_blank" class="resource-link">📄 PDF</a>` : ''}
+                    </div>
+                    <div class="enroll-action">
+                        <button class="quick-enroll-btn" onclick="enrollInCourse(${course.id})">
+                            Enroll in This Course
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(courseCard);
+            });
+        }
+
+        // Enroll in course
+        async function enrollInCourse(courseId) {
+            await startCourse(studentId, courseId);
+        }
+
+        // Handle enrollment form submission
+        document.getElementById('enrollBtn').addEventListener('click', async function() {
+            const courseId = document.getElementById('courseSelect').value;
+            
+            if (!courseId) {
+                showMessage('Please select a course', 'error');
+                return;
+            }
+
+            await startCourse(studentId, courseId);
+        });
+
+        // Start course API call
+        async function startCourse(studentId, courseId) {
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/students/${studentId}/start_course/${courseId}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(`Successfully enrolled in course! ${data.message}`, 'success');
+                    document.getElementById('courseSelect').value = '';
+                } else {
+                    showMessage('Failed to enroll: ' + (data.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showMessage('Network error: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            messageDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Logout
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'auth.html';
+        }
+    </script>
+</body>
+</html>
