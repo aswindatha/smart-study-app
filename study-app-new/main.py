@@ -21,8 +21,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Smart Learning App", version="1.0.0", lifespan=lifespan)
 
-# Initialize Gemini API
-# TODO: Replace this placeholder with your actual Gemini API key
+# TODO: Replace this placeholder with your actual API key
 API_KEY = "AIzaSyC_J6WNngG4oxK2b_eagK3_TR7-0tv4IH4"
 genai.configure(api_key=API_KEY)
 
@@ -283,17 +282,26 @@ async def get_course_progress(student_id: int, course_id: int):
     """Get student's progress for a specific course"""
     with get_db() as conn:
         cursor = conn.cursor()
+        
+        # Check if student is enrolled in the course
         cursor.execute(
-            "SELECT progress, total_time_spent FROM student_courses WHERE student_id = ? AND course_id = ?",
+            "SELECT id FROM student_courses WHERE student_id = ? AND course_id = ?",
             (student_id, course_id)
         )
-        course_data = cursor.fetchone()
+        enrollment = cursor.fetchone()
         
-        if not course_data:
+        # Get student's overall progress
+        cursor.execute(
+            "SELECT progress FROM students WHERE id = ?",
+            (student_id,)
+        )
+        student_data = cursor.fetchone()
+        
+        if not enrollment:
             # Create enrollment if not exists
             cursor.execute(
-                "INSERT INTO student_courses (student_id, course_id, progress, total_time_spent) VALUES (?, ?, ?, ?)",
-                (student_id, course_id, 0.0, 0.0)
+                "INSERT INTO student_courses (student_id, course_id) VALUES (?, ?)",
+                (student_id, course_id)
             )
             conn.commit()
             return {
@@ -302,10 +310,10 @@ async def get_course_progress(student_id: int, course_id: int):
                 "course_completed": False
             }
         
-        progress, time_spent = course_data
+        progress = student_data["progress"] if student_data else 0.0
         return {
             "progress_percentage": progress * 100,
-            "time_spent_minutes": time_spent,
+            "time_spent_minutes": 0.0,  # Not tracked in current schema
             "course_completed": progress >= 1.0
         }
 
@@ -317,14 +325,15 @@ async def get_student_courses_with_progress(student_id: int):
         cursor.execute(
             """
             SELECT c.id, c.title, c.description, c.video_url, c.pdf_url,
-                   COALESCE(sc.progress, 0.0) as progress,
-                   COALESCE(sc.total_time_spent, 0.0) as time_spent,
-                   sc.status as enrollment_status
+                   CASE WHEN sc.student_id IS NOT NULL THEN s.progress ELSE 0.0 END as progress,
+                   0.0 as time_spent,
+                   COALESCE(sc.status, 'not_enrolled') as enrollment_status
             FROM courses c
             LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.student_id = ?
+            LEFT JOIN students s ON s.id = ?
             ORDER BY c.title
             """,
-            (student_id,)
+            (student_id, student_id)
         )
         courses_data = cursor.fetchall()
         
@@ -440,8 +449,8 @@ async def upload_notes(student_id: int, file: UploadFile = File(...)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO notes (student_id, file_path, summary) VALUES (?, ?, ?)",
-            (student_id, file_path, file.filename)  # Use filename as summary for display
+            "INSERT INTO notes (student_id, file_path, title) VALUES (?, ?, ?)",
+            (student_id, file_path, file.filename)  # Use filename as title for display
         )
         conn.commit()
     
@@ -1208,7 +1217,7 @@ async def register_user(user: UserRegister):
         
         # Insert new user
         cursor.execute(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+            "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
             (user.name, user.email, user.password, user.role)
         )
         conn.commit()
@@ -1220,14 +1229,14 @@ async def register_user(user: UserRegister):
         # If user is a student, create corresponding student profile
         if user.role == "student":
             cursor.execute(
-                "INSERT INTO students (user_id, name) VALUES (?, ?)",
-                (user_data["id"], user.name)
+                "INSERT INTO students (user_id, name, email, password_hash) VALUES (?, ?, ?, ?)",
+                (user_data["id"], user.name, user.email, user.password)
             )
         # If user is a teacher, create corresponding teacher profile
         elif user.role == "teacher":
             cursor.execute(
-                "INSERT INTO teachers (user_id) VALUES (?)",
-                (user_data["id"],)
+                "INSERT INTO teachers (user_id, name, email, password_hash) VALUES (?, ?, ?, ?)",
+                (user_data["id"], user.name, user.email, user.password)
             )
         conn.commit()
         

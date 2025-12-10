@@ -43,5 +43,5 @@ venv/
 Thumbs.db
 
 # Uploads
-uploads/
+
 temp/

@@ -145,10 +145,10 @@ def init_database():
     cursor.execute("SELECT COUNT(*) FROM courses")
     if cursor.fetchone()[0] == 0:
         sample_courses = [
-            ("Introduction to Python", "Learn the basics of Python programming", "https://example.com/python_intro.mp4", "https://example.com/python_intro.pdf", "beginner", 120),
-            ("Data Structures", "Understanding arrays, lists, and more complex data structures", "https://example.com/data_structures.mp4", "https://example.com/data_structures.pdf", "intermediate", 180),
-            ("Web Development Basics", "HTML, CSS, and JavaScript fundamentals", "https://example.com/web_dev.mp4", "https://example.com/web_dev.pdf", "beginner", 150),
-            ("Database Fundamentals", "SQL and database design principles", "https://example.com/database.mp4", "https://example.com/database.pdf", "intermediate", 200)
+            ("Introduction to Python", "Learn the basics of Python programming", "sample uploads/computer.mp4", "sample uploads/ai-vs-ml.pdf", "beginner", 120),
+            ("Data Science Fundamentals", "Understanding data analysis and machine learning concepts", "sample uploads/data-science.mp4", "sample uploads/ai-vs-ml.pdf", "intermediate", 180),
+            ("AI Research Methods", "Advanced research techniques in artificial intelligence", "sample uploads/research.mp4", "sample uploads/ai-vs-ml.pdf", "advanced", 200),
+            ("Computer Vision Basics", "Introduction to computer vision and image processing", "sample uploads/computer.mp4", "sample uploads/ai-vs-ml.pdf", "intermediate", 150)
         ]
         cursor.executemany("INSERT INTO courses (title, description, video_url, pdf_url, difficulty_level, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)", sample_courses)
     
