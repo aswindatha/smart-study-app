@@ -26,6 +26,8 @@ class CourseBase(BaseModel):
     description: Optional[str] = None
     video_url: Optional[str] = None
     pdf_url: Optional[str] = None
+    difficulty_level: Optional[str] = None
+    duration_minutes: Optional[int] = None
 
 class CourseCreate(CourseBase):
     pass
@@ -60,11 +62,12 @@ class DashboardResponse(BaseModel):
     cognitive_load_level: str
     recommended_next_course: Optional[Course] = None
 
-# Progress Update Request
+# Progress Models
 class ProgressUpdate(BaseModel):
     time_spent: float
     gaze_score: float  # 0 to 1
     face_attention_score: float  # 0 to 1
+    course_id: Optional[int] = None  # Optional course ID for specific course updates
 
 # Progress Response
 class ProgressResponse(BaseModel):

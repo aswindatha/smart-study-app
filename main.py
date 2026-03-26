@@ -118,8 +118,19 @@ async def get_student_dashboard(student_id: int):
         if all_courses:
             recommended_course = all_courses[0]
     
-    # Calculate cognitive load level
-    cognitive_load_level = get_cognitive_load_level(50)  # Default, would be calculated from actual data
+    # Get latest cognitive load from metrics_history
+    cognitive_load_level = "low"  # Default fallback
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT cognitive_load FROM metrics_history 
+            WHERE student_id = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 1
+        """, (student_id,))
+        latest_metric = cursor.fetchone()
+        if latest_metric and latest_metric['cognitive_load'] is not None:
+            cognitive_load_level = get_cognitive_load_level(latest_metric['cognitive_load'])
     
     return DashboardResponse(
         student=student,
@@ -156,125 +167,61 @@ async def start_course(student_id: int, course_id: int):
             "UPDATE students SET current_course_id = ?, progress = 0.0, emotional_state = 'neutral' WHERE id = ?",
             (course_id, student_id)
         )
+        
+        # Ensure student is enrolled in the course and set status to in_progress
+        cursor.execute("""
+            INSERT INTO student_courses (student_id, course_id, status, progress_percent)
+            VALUES (?, ?, 'in_progress', 0.0)
+            ON CONFLICT(student_id, course_id) DO UPDATE SET
+                status = 'in_progress',
+                progress_percent = 0.0,
+                completion_date = NULL
+        """, (student_id, course_id))
+        
         conn.commit()
     
     return {"message": f"Student {student_id} started course '{course.title}'", "course_id": course_id}
 
 @app.post("/students/{student_id}/update_progress", response_model=ProgressResponse)
 async def update_student_progress(student_id: int, progress_data: ProgressUpdate):
-    """Update student progress based on time spent, gaze score, and face attention"""
+    """Simple completion: when video finishes, mark course as completed"""
+    
+    # Get student's current course
     student = get_student_by_id(student_id)
-    
-    # Get current course ID from student or from request
     current_course_id = student.current_course_id
-    if not current_course_id:
-        # Try to get course ID from progress data if available
-        current_course_id = getattr(progress_data, 'course_id', None)
     
     if not current_course_id:
-        raise HTTPException(status_code=400, detail="No active course found")
+        raise HTTPException(status_code=400, detail="No active course")
     
-    # Calculate cognitive metrics
-    cognitive_load, emotional_state = calculate_cognitive_load(
-        progress_data.gaze_score, student.cognitive_limit
-    )
-    engagement_level = calculate_engagement(progress_data.face_attention_score)
+    # Get course
+    course = get_course_by_id(current_course_id)
     
-    # Get current course progress from student_courses table
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT progress, total_time_spent FROM student_courses WHERE student_id = ? AND course_id = ?",
-            (student_id, current_course_id)
-        )
-        course_progress_data = cursor.fetchone()
         
-        if not course_progress_data:
-            # Create enrollment if not exists
-            cursor.execute(
-                "INSERT INTO student_courses (student_id, course_id, progress, total_time_spent) VALUES (?, ?, ?, ?)",
-                (student_id, current_course_id, 0.0, 0.0)
-            )
-            current_course_progress = 0.0
-            current_time_spent = 0.0
-        else:
-            current_course_progress, current_time_spent = course_progress_data
-    
-    # Calculate progress increase based on multiple factors
-    # Base progress from time spent (1 minute = ~1% progress base)
-    base_progress = progress_data.time_spent * 0.8  # More conservative progression
-    
-    # Engagement multiplier (0.5x to 1.5x based on engagement)
-    engagement_multiplier = 0.5 + (engagement_level / 100) * 1.0
-    
-    # Cognitive load factor (too high or too low cognitive load reduces learning)
-    if cognitive_load > 85:  # Overwhelmed
-        cognitive_factor = 0.7
-    elif cognitive_load > student.cognitive_limit:  # Stressed
-        cognitive_factor = 0.8
-    elif cognitive_load < 25:  # Bored/under-challenged
-        cognitive_factor = 0.85
-    else:  # Optimal range
-        cognitive_factor = 1.0
-    
-    # Calculate final progress increase
-    progress_increase = base_progress * engagement_multiplier * cognitive_factor
-    new_course_progress = min(1.0, current_course_progress + progress_increase)  # Cap at 100%
-    new_total_time_spent = current_time_spent + progress_data.time_spent
-    
-    # Debug logging
-    print(f"Course-Specific Progress Update Debug:")
-    print(f"  Student ID: {student_id}")
-    print(f"  Course ID: {current_course_id}")
-    print(f"  Gaze Score: {progress_data.gaze_score:.3f}")
-    print(f"  Face Attention: {progress_data.face_attention_score:.3f}")
-    print(f"  Time Spent: {progress_data.time_spent:.2f} min")
-    print(f"  Student Limit: {student.cognitive_limit}")
-    print(f"  Calculated Cognitive Load: {cognitive_load:.1f}%")
-    print(f"  Emotional State: {emotional_state}")
-    print(f"  Engagement Level: {engagement_level:.1f}%")
-    print(f"  Current Course Progress: {current_course_progress:.3f}")
-    print(f"  Progress Increase: {progress_increase:.3f}")
-    print(f"  New Course Progress: {new_course_progress:.3f}")
-    print(f"  Total Time Spent: {new_total_time_spent:.2f} min")
-    
-    # Update course-specific progress in database
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE student_courses SET progress = ?, total_time_spent = ? WHERE student_id = ? AND course_id = ?",
-            (new_course_progress, new_total_time_spent, student_id, current_course_id)
-        )
+        # Simple: just mark as completed
+        cursor.execute("""
+            UPDATE student_courses 
+            SET status = 'completed', 
+                progress_percent = 100.0,
+                completion_date = datetime('now')
+            WHERE student_id = ? AND course_id = ?
+        """, (student_id, current_course_id))
         
-        # Update student's overall progress (average of all courses)
+        # Update student overall progress
         cursor.execute(
-            "SELECT AVG(progress) as avg_progress FROM student_courses WHERE student_id = ?",
+            "UPDATE students SET progress = 1.0 WHERE id = ?",
             (student_id,)
-        )
-        avg_progress = cursor.fetchone()['avg_progress'] or 0.0
-        
-        # Update student's current course and overall progress
-        cursor.execute(
-            "UPDATE students SET progress = ?, emotional_state = ?, current_course_id = ? WHERE id = ?",
-            (avg_progress, emotional_state, current_course_id, student_id)
-        )
-        
-        # Save to metrics history for analytics
-        cursor.execute(
-            """INSERT INTO metrics_history 
-               (student_id, gaze_score, face_attention, cognitive_load, emotional_state, progress)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (student_id, progress_data.gaze_score, progress_data.face_attention_score, 
-             cognitive_load, emotional_state, new_course_progress)
         )
         
         conn.commit()
     
+    # Return simple response
     return ProgressResponse(
-        new_progress=new_course_progress,  # Return course-specific progress
-        cognitive_load=cognitive_load,
-        engagement_level=engagement_level,
-        emotional_state=emotional_state
+        new_progress=1.0,
+        cognitive_load=50.0,  # dummy values
+        engagement_level=75.0,
+        emotional_state="completed"
     )
 
 @app.get("/students/{student_id}/courses/{course_id}/progress")
@@ -283,38 +230,28 @@ async def get_course_progress(student_id: int, course_id: int):
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # Check if student is enrolled in the course
+        # Get course progress data
         cursor.execute(
-            "SELECT id FROM student_courses WHERE student_id = ? AND course_id = ?",
+            "SELECT status, progress_percent, completion_date FROM student_courses WHERE student_id = ? AND course_id = ?",
             (student_id, course_id)
         )
-        enrollment = cursor.fetchone()
+        progress_data = cursor.fetchone()
         
-        # Get student's overall progress
-        cursor.execute(
-            "SELECT progress FROM students WHERE id = ?",
-            (student_id,)
-        )
-        student_data = cursor.fetchone()
-        
-        if not enrollment:
-            # Create enrollment if not exists
-            cursor.execute(
-                "INSERT INTO student_courses (student_id, course_id) VALUES (?, ?)",
-                (student_id, course_id)
-            )
-            conn.commit()
+        if not progress_data:
+            # Course not started
             return {
-                "progress_percentage": 0.0,
+                "progress_percentage": 0,
                 "time_spent_minutes": 0.0,
-                "course_completed": False
+                "course_completed": False,
+                "status": "not_started"
             }
         
-        progress = student_data["progress"] if student_data else 0.0
         return {
-            "progress_percentage": progress * 100,
-            "time_spent_minutes": 0.0,  # Not tracked in current schema
-            "course_completed": progress >= 1.0
+            "progress_percentage": progress_data["progress_percent"],
+            "time_spent_minutes": 0.0,  # Not tracked separately in current schema
+            "course_completed": progress_data["status"] == "completed",
+            "status": progress_data["status"],
+            "completion_date": progress_data["completion_date"]
         }
 
 @app.get("/students/{student_id}/courses_with_progress")
@@ -325,15 +262,13 @@ async def get_student_courses_with_progress(student_id: int):
         cursor.execute(
             """
             SELECT c.id, c.title, c.description, c.video_url, c.pdf_url,
-                   CASE WHEN sc.student_id IS NOT NULL THEN s.progress ELSE 0.0 END as progress,
-                   0.0 as time_spent,
-                   COALESCE(sc.status, 'not_enrolled') as enrollment_status
+                   COALESCE(sc.status, 'not_started') as status,
+                   COALESCE(sc.progress_percent, 0) as progress_percent
             FROM courses c
             LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.student_id = ?
-            LEFT JOIN students s ON s.id = ?
             ORDER BY c.title
             """,
-            (student_id, student_id)
+            (student_id,)
         )
         courses_data = cursor.fetchall()
         
@@ -344,9 +279,9 @@ async def get_student_courses_with_progress(student_id: int):
                 "description": course["description"],
                 "video_url": course["video_url"],
                 "pdf_url": course["pdf_url"],
-                "progress": course["progress"] * 100,
-                "time_spent_minutes": course["time_spent"],
-                "enrollment_status": course["enrollment_status"] or "not_enrolled"
+                "progress": course["progress_percent"],
+                "status": course["status"],
+                "enrollment_status": course["status"]  # Keep for compatibility
             }
             for course in courses_data
         ]
@@ -1052,6 +987,11 @@ async def get_student_analytics(student_id: int):
             total_sessions=len(history)
         )
 
+@app.get("/teacher/dashboard")
+async def get_teacher_dashboard():
+    """Get basic teacher dashboard statistics"""
+    return await get_dashboard_analytics()
+
 @app.get("/teacher/dashboard/analytics")
 async def get_dashboard_analytics():
     """Get comprehensive dashboard analytics"""
@@ -1065,11 +1005,13 @@ async def get_dashboard_analytics():
                 FROM students s 
                 LEFT JOIN courses c ON s.current_course_id = c.id
             """)
-            students = cursor.fetchall()
+            students_data = cursor.fetchall()
+            students = [dict(student) for student in students_data]
             
             # Get all courses
             cursor.execute("SELECT * FROM courses")
-            courses = cursor.fetchall()
+            courses_data = cursor.fetchall()
+            courses = [dict(course) for course in courses_data]
             
             # Get recent activity (last 10 progress updates) - handle case where table might not exist
             recent_activity = []
@@ -1095,16 +1037,15 @@ async def get_dashboard_analytics():
                 progress_sum = 0.0
                 valid_progress_count = 0
                 for student in students:
-                    # Find progress column (index 4 based on database structure)
-                    if len(student) > 4:
-                        progress = student[4] or 0.0
-                        # Ensure progress is between 0 and 1, handle cases where it might be stored as percentage
-                        if progress > 1.0:  # If stored as percentage (e.g., 50.0 for 50%)
-                            progress = progress / 100.0
-                        # Clamp to valid range
-                        progress = max(0.0, min(1.0, progress))
-                        progress_sum += progress
-                        valid_progress_count += 1
+                    # Get progress from dictionary
+                    progress = student.get('progress', 0.0) or 0.0
+                    # Ensure progress is between 0 and 1, handle cases where it might be stored as percentage
+                    if progress > 1.0:  # If stored as percentage (e.g., 50.0 for 50%)
+                        progress = progress / 100.0
+                    # Clamp to valid range
+                    progress = max(0.0, min(1.0, progress))
+                    progress_sum += progress
+                    valid_progress_count += 1
                 
                 # Use valid progress count for average, ignore invalid entries
                 if valid_progress_count > 0:
@@ -1112,23 +1053,19 @@ async def get_dashboard_analytics():
             
             # Engaged students (progress > 50%)
             engaged_students = 0
-            for s in students:
-                if len(s) > 4:
-                    progress = s[4] or 0.0
-                    # Apply same bounds checking as above
-                    if progress > 1.0:
-                        progress = progress / 100.0
-                    progress = max(0.0, min(1.0, progress))
-                    if progress > 0.5:
-                        engaged_students += 1
+            for student in students:
+                progress = student.get('progress', 0.0) or 0.0
+                # Apply same bounds checking as above
+                if progress > 1.0:
+                    progress = progress / 100.0
+                progress = max(0.0, min(1.0, progress))
+                if progress > 0.5:
+                    engaged_students += 1
             
             # Emotional state distribution
             emotional_states = {}
-            for s in students:
-                # Find emotional state column (index 7 based on database structure)
-                state = 'unknown'
-                if len(s) > 7:
-                    state = s[7] or 'unknown'
+            for student in students:
+                state = student.get('emotional_state', 'unknown') or 'unknown'
                 emotional_states[state] = emotional_states.get(state, 0) + 1
             
             # Average cognitive load
@@ -1136,34 +1073,31 @@ async def get_dashboard_analytics():
             if total_students > 0:
                 cognitive_sum = 0.0
                 for student in students:
-                    # Find cognitive limit column (index 6 based on database structure)
-                    if len(student) > 6:
-                        cognitive_sum += student[6] or 80
+                    cognitive_limit = student.get('cognitive_limit', 80) or 80
+                    cognitive_sum += cognitive_limit
                 avg_cognitive_load = cognitive_sum / total_students
             
             # Top performers (progress > 80%)
             top_performers = 0
-            for s in students:
-                if len(s) > 4:
-                    progress = s[4] or 0.0
-                    # Apply same bounds checking as above
-                    if progress > 1.0:
-                        progress = progress / 100.0
-                    progress = max(0.0, min(1.0, progress))
-                    if progress > 0.8:
-                        top_performers += 1
+            for student in students:
+                progress = student.get('progress', 0.0) or 0.0
+                # Apply same bounds checking as above
+                if progress > 1.0:
+                    progress = progress / 100.0
+                progress = max(0.0, min(1.0, progress))
+                if progress > 0.8:
+                    top_performers += 1
             
             # Students needing attention (progress < 30%)
             need_attention = 0
-            for s in students:
-                if len(s) > 4:
-                    progress = s[4] or 0.0
-                    # Apply same bounds checking as above
-                    if progress > 1.0:
-                        progress = progress / 100.0
-                    progress = max(0.0, min(1.0, progress))
-                    if progress < 0.3:
-                        need_attention += 1
+            for student in students:
+                progress = student.get('progress', 0.0) or 0.0
+                # Apply same bounds checking as above
+                if progress > 1.0:
+                    progress = progress / 100.0
+                progress = max(0.0, min(1.0, progress))
+                if progress < 0.3:
+                    need_attention += 1
             
             return {
                 "total_students": total_students,

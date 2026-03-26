@@ -90,7 +90,8 @@ def init_database():
             course_id INTEGER NOT NULL,
             enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             completion_date TIMESTAMP,
-            status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'dropped')),
+            status TEXT DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed')),
+            progress_percent INTEGER DEFAULT 0,
             FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             UNIQUE(student_id, course_id)
@@ -253,10 +254,32 @@ def migrate_database():
                     # SQLite limitation: set current timestamp for existing rows
                     cursor.execute("UPDATE students SET created_at = datetime('now') WHERE created_at IS NULL")
         
-        # Check if student_courses table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='student_courses'")
-        if not cursor.fetchone():
-            print("Creating student_courses table...")
+        # Update student_courses table - recreate with new schema since SQLite doesn't support ALTER CONSTRAINT
+        cursor.execute("PRAGMA table_info(student_courses)")
+        current_columns = [column[1] for column in cursor.fetchall()]
+
+        # If we need to update the schema (add progress_percent or change status constraint)
+        needs_recreate = 'progress_percent' not in current_columns
+        
+        # Also check if the status constraint is wrong (old schema used 'active', 'completed', 'dropped')
+        if not needs_recreate:
+            # Check the CHECK constraint by trying to get the table SQL
+            cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='student_courses'")
+            table_sql = cursor.fetchone()[0]
+            if table_sql and ("'active', 'completed', 'dropped'" in table_sql or "DEFAULT 'active'" in table_sql):
+                needs_recreate = True
+                print("Found old status constraint, recreating student_courses table...")
+        
+        if needs_recreate:
+            print("Recreating student_courses table with updated schema...")
+
+            # Backup existing data
+            cursor.execute("SELECT * FROM student_courses")
+            existing_data = cursor.fetchall()
+
+            # Drop and recreate table with new schema
+            cursor.execute("DROP TABLE student_courses")
+
             cursor.execute("""
                 CREATE TABLE student_courses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,12 +287,35 @@ def migrate_database():
                     course_id INTEGER NOT NULL,
                     enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     completion_date TIMESTAMP,
-                    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'dropped')),
+                    status TEXT DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed')),
+                    progress_percent INTEGER DEFAULT 0,
                     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
                     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
                     UNIQUE(student_id, course_id)
                 )
             """)
+
+            # Restore data with status mapping
+            for row in existing_data:
+                old_status = row[5] if len(row) > 5 else 'active'
+                # Map old statuses to new ones
+                if old_status == 'active':
+                    new_status = 'not_started'
+                elif old_status == 'enrolled':
+                    new_status = 'in_progress'
+                else:
+                    new_status = old_status  # 'completed' stays the same
+
+                # Insert with new schema (add progress_percent=0 if not present)
+                cursor.execute("""
+                    INSERT INTO student_courses
+                    (id, student_id, course_id, enrollment_date, completion_date, status, progress_percent)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (row[0], row[1], row[2], row[3], row[4], new_status, 0))
+
+            print("✅ student_courses table recreated with updated schema")
+        else:
+            print("student_courses table already has correct schema")
         
         # Update courses table with missing columns
         cursor.execute("PRAGMA table_info(courses)")
@@ -324,6 +370,11 @@ def migrate_database():
         # Update metrics_history table
         cursor.execute("PRAGMA table_info(metrics_history)")
         metrics_columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'course_id' not in metrics_columns:
+            print("Adding course_id to metrics_history table...")
+            cursor.execute("ALTER TABLE metrics_history ADD COLUMN course_id INTEGER")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_metrics_history_course_id ON metrics_history(course_id)")
         
         if 'session_duration' not in metrics_columns:
             print("Adding session_duration to metrics_history table...")

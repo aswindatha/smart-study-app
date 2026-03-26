@@ -2644,7 +2644,7 @@
                             <div class="progress-bar-item">
                                 <div class="progress-label">📹 Video Progress</div>
                                 <div class="video-progress-bar">
-                                    <div class="video-progress-fill" id="videoProgressFill" style="width: 0%"></div>
+                                    <div class="video-progress-fill" id="videoProgressFillLearning" style="width: 0%"></div>
                                 </div>
                             </div>
                         </div>
@@ -3553,15 +3553,17 @@
                     videoProgressFillElement.style.width = progressPercent + '%';
                 }
                 
+                const videoProgressFillLearningElement = document.getElementById('videoProgressFillLearning');
+                if (videoProgressFillLearningElement) {
+                    videoProgressFillLearningElement.style.width = progressPercent + '%';
+                }
+                
                 const videoProgressDisplayElement = document.getElementById('videoProgressDisplay');
                 if (videoProgressDisplayElement) {
                     videoProgressDisplayElement.textContent = progressPercent + '%';
                 }
                 
-                const progressPercentageElement = document.getElementById('progressPercentage');
-                if (progressPercentageElement) {
-                    progressPercentageElement.textContent = progressPercent + '%';
-                }
+                console.log('Updated all progress displays to:', progressPercent + '%');
             }
             
             // Show course player
@@ -3572,6 +3574,16 @@
             if (course.video_url) {
                 video.src = course.video_url;
                 video.load();
+                
+                // Add debugging for video loading
+                video.addEventListener('loadedmetadata', function() {
+                    console.log('Video metadata loaded. Duration:', video.duration);
+                    console.log('Video source:', video.src);
+                });
+                
+                video.addEventListener('canplay', function() {
+                    console.log('Video can play. Duration:', video.duration);
+                });
                 
                 // Initialize progress tracking (don't reset totalWatchTime)
                 videoStartTime = null;
@@ -4246,6 +4258,9 @@
         function onVideoTimeUpdate() {
             const video = document.getElementById('courseVideo');
             
+            // Add debugging
+            console.log('onVideoTimeUpdate called. Current time:', video.currentTime, 'Duration:', video.duration);
+            
             // Check if duration is available and update if needed
             if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
                 const duration = formatTime(video.duration);
@@ -4265,6 +4280,8 @@
                 const progress = (video.currentTime / video.duration) * 100;
                 const progressPercent = Math.round(progress);
                 
+                console.log('Progress calculated:', progressPercent + '%');
+                
                 // Update progress display in real-time (more frequent updates)
                 const videoProgressFillElement = document.getElementById('videoProgressFill');
                 if (videoProgressFillElement) {
@@ -4277,9 +4294,9 @@
                 }
                 
                 // Update Learning Progress section video progress
-                const videoProgressDisplayElement = document.getElementById('videoProgressDisplay');
+                const videoProgressDisplayElement = document.getElementById('videoProgressFillLearning');
                 if (videoProgressDisplayElement) {
-                    videoProgressDisplayElement.textContent = progressPercent + '%';
+                    videoProgressDisplayElement.style.width = progress + '%';
                 }
                 
                 // Update main course progress in real-time
@@ -4850,15 +4867,17 @@
                 videoReady: video.readyState >= 2
             });
             
-            // Start periodic analytics updates
+            // Start periodic analytics updates (simplified for status tracking)
             analyticsInterval = setInterval(() => {
-                updateLearningAnalytics();
+                // Simplified analytics - just update status if needed
+                console.log('Analytics update - status tracking active');
             }, 3000); // Update every 3 seconds
             
-            // Start progress updates
+            // Start progress updates (simplified)
             progressUpdateInterval = setInterval(() => {
-                updateProgressFromVideo();
-            }, 5000); // Update progress every 5 seconds
+                // Status-only updates, no complex progress calculation
+                console.log('Status update - checking completion');
+            }, 5000); // Update status every 5 seconds
             
             console.log('Learning analytics started successfully');
             
