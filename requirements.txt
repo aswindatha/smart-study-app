@@ -8,3 +8,4 @@ numpy==1.24.3
 Pillow==10.1.0
 google-generativeai>=0.8.5
 python-dotenv>=1.0.0
+mediapipe==0.10.9

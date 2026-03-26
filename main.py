@@ -43,10 +43,12 @@ from models import (
     TeacherCreate, Teacher
 )
 from utils import (
-    calculate_cognitive_load, calculate_engagement, 
-    simple_text_summarizer, extract_text_from_pdf, extract_text_from_txt,
-    get_cognitive_load_level, get_recommended_next_course,
-    analyze_face_from_image, detect_emotional_state
+    analyze_face_from_image,
+    analyze_face_with_debug_overlay,
+    calculate_cognitive_load_legacy,
+    calculate_engagement_legacy,
+    calculate_engagement,
+    stable_tracker
 )
 
 # Add CORS middleware
@@ -86,6 +88,23 @@ def get_all_courses():
         cursor.execute("SELECT * FROM courses ORDER BY id")
         courses_data = cursor.fetchall()
         return [Course(**course) for course in courses_data]
+
+def get_recommended_next_course(student_id: int, current_course_id: int) -> int:
+    """Get next recommended course for student"""
+    # Simple recommendation: next course in sequence
+    # In a real app, this would be more sophisticated
+    return current_course_id + 1 if current_course_id else 1
+
+def get_cognitive_load_level(cognitive_load: float) -> str:
+    """Get cognitive load level category"""
+    if cognitive_load < 30:
+        return "low"
+    elif cognitive_load < 60:
+        return "medium"
+    elif cognitive_load < 80:
+        return "high"
+    else:
+        return "critical"
 
 # ENDPOINTS
 
@@ -184,7 +203,7 @@ async def start_course(student_id: int, course_id: int):
 
 @app.post("/students/{student_id}/update_progress", response_model=ProgressResponse)
 async def update_student_progress(student_id: int, progress_data: ProgressUpdate):
-    """Simple completion: when video finishes, mark course as completed"""
+    """Update course progress - simple and straightforward"""
     
     # Get student's current course
     student = get_student_by_id(student_id)
@@ -193,65 +212,91 @@ async def update_student_progress(student_id: int, progress_data: ProgressUpdate
     if not current_course_id:
         raise HTTPException(status_code=400, detail="No active course")
     
-    # Get course
-    course = get_course_by_id(current_course_id)
-    
+    # Store the metrics
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # Simple: just mark as completed
+        # Insert metrics
+        cursor.execute("""
+            INSERT INTO metrics_history 
+            (student_id, course_id, gaze_score, face_attention, cognitive_load, 
+             emotional_state, progress, session_duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            student_id, 
+            current_course_id,
+            progress_data.gaze_score * 100,
+            progress_data.face_attention_score * 100,
+            50.0,  # Default cognitive load
+            "neutral",
+            100.0,  # Video completed = 100% progress
+            progress_data.time_spent * 60
+        ))
+        
+        # Mark course as completed with simple analytics
         cursor.execute("""
             UPDATE student_courses 
             SET status = 'completed', 
-                progress_percent = 100.0,
-                completion_date = datetime('now')
+                progress_percent = 100,
+                completion_date = datetime('now'),
+                avg_cognitive_load = 50.0,
+                avg_engagement = ?,
+                time_spent_minutes = ?
             WHERE student_id = ? AND course_id = ?
-        """, (student_id, current_course_id))
+        """, (
+            progress_data.face_attention_score * 90,  # Simple engagement calc
+            int(progress_data.time_spent),
+            student_id, 
+            current_course_id
+        ))
         
-        # Update student overall progress
-        cursor.execute(
-            "UPDATE students SET progress = 1.0 WHERE id = ?",
-            (student_id,)
-        )
+        # Update student progress
+        cursor.execute("UPDATE students SET progress = 1.0 WHERE id = ?", (student_id,))
         
         conn.commit()
     
-    # Return simple response
     return ProgressResponse(
         new_progress=1.0,
-        cognitive_load=50.0,  # dummy values
-        engagement_level=75.0,
+        cognitive_load=50.0,
+        engagement_level=progress_data.face_attention_score * 90,
         emotional_state="completed"
     )
 
 @app.get("/students/{student_id}/courses/{course_id}/progress")
 async def get_course_progress(student_id: int, course_id: int):
-    """Get student's progress for a specific course"""
+    """Get student's progress for a specific course with stored metrics"""
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # Get course progress data
-        cursor.execute(
-            "SELECT status, progress_percent, completion_date FROM student_courses WHERE student_id = ? AND course_id = ?",
-            (student_id, course_id)
-        )
+        # Get course progress data with metrics
+        cursor.execute("""
+            SELECT status, progress_percent, completion_date, 
+                   avg_cognitive_load, avg_engagement, time_spent_minutes
+            FROM student_courses 
+            WHERE student_id = ? AND course_id = ?
+        """, (student_id, course_id))
+        
         progress_data = cursor.fetchone()
         
         if not progress_data:
             # Course not started
             return {
                 "progress_percentage": 0,
-                "time_spent_minutes": 0.0,
+                "time_spent_minutes": 0,
                 "course_completed": False,
-                "status": "not_started"
+                "status": "not_started",
+                "avg_cognitive_load": 0,
+                "avg_engagement": 0
             }
         
         return {
             "progress_percentage": progress_data["progress_percent"],
-            "time_spent_minutes": 0.0,  # Not tracked separately in current schema
+            "time_spent_minutes": progress_data["time_spent_minutes"] or 0,
             "course_completed": progress_data["status"] == "completed",
             "status": progress_data["status"],
-            "completion_date": progress_data["completion_date"]
+            "completion_date": progress_data["completion_date"],
+            "avg_cognitive_load": progress_data["avg_cognitive_load"] or 0,
+            "avg_engagement": progress_data["avg_engagement"] or 0
         }
 
 @app.get("/students/{student_id}/courses_with_progress")
@@ -263,7 +308,10 @@ async def get_student_courses_with_progress(student_id: int):
             """
             SELECT c.id, c.title, c.description, c.video_url, c.pdf_url,
                    COALESCE(sc.status, 'not_started') as status,
-                   COALESCE(sc.progress_percent, 0) as progress_percent
+                   COALESCE(sc.progress_percent, 0) as progress_percent,
+                   COALESCE(sc.avg_cognitive_load, 0.0) as avg_cognitive_load,
+                   COALESCE(sc.avg_engagement, 0.0) as avg_engagement,
+                   COALESCE(sc.time_spent_minutes, 0) as time_spent_minutes
             FROM courses c
             LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.student_id = ?
             ORDER BY c.title
@@ -281,23 +329,38 @@ async def get_student_courses_with_progress(student_id: int):
                 "pdf_url": course["pdf_url"],
                 "progress": course["progress_percent"],
                 "status": course["status"],
-                "enrollment_status": course["status"]  # Keep for compatibility
+                "enrollment_status": course["status"],  # Keep for compatibility
+                "avg_cognitive_load": course["avg_cognitive_load"],
+                "avg_engagement": course["avg_engagement"],
+                "time_spent_minutes": course["time_spent_minutes"]
             }
             for course in courses_data
         ]
 
 @app.get("/students/{student_id}/metrics_history")
-async def get_student_metrics_history(student_id: int, limit: int = 50):
-    """Get student's metrics history"""
+async def get_student_metrics_history(student_id: int, course_id: Optional[int] = None, limit: int = 50):
+    """Get student's metrics history, optionally filtered by course_id"""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            """SELECT * FROM metrics_history 
-               WHERE student_id = ? 
-               ORDER BY timestamp DESC 
-               LIMIT ?""",
-            (student_id, limit)
-        )
+        
+        if course_id:
+            # Filter by specific course
+            cursor.execute(
+                """SELECT * FROM metrics_history 
+                   WHERE student_id = ? AND course_id = ?
+                   ORDER BY timestamp DESC 
+                   LIMIT ?""",
+                (student_id, course_id, limit)
+            )
+        else:
+            # Get all metrics for student
+            cursor.execute(
+                """SELECT * FROM metrics_history 
+                   WHERE student_id = ? 
+                   ORDER BY timestamp DESC 
+                   LIMIT ?""",
+                (student_id, limit)
+            )
         
         metrics_data = cursor.fetchall()
         
@@ -305,6 +368,7 @@ async def get_student_metrics_history(student_id: int, limit: int = 50):
             {
                 "id": metric["id"],
                 "timestamp": metric["timestamp"],
+                "course_id": metric.get("course_id"),
                 "gaze_score": metric["gaze_score"],
                 "face_attention": metric["face_attention"],
                 "cognitive_load": metric["cognitive_load"],
@@ -367,10 +431,33 @@ async def upload_notes(student_id: int, file: UploadFile = File(...)):
     file_content = await file.read()
     
     # Extract text based on file type for storage
-    if file_extension == '.pdf':
-        extracted_text = extract_text_from_pdf(file_content)
-    else:  # .txt
-        extracted_text = extract_text_from_txt(file_content)
+    try:
+        if file_extension == '.pdf':
+            # Extract text from PDF
+            import PyPDF2
+            import io
+            
+            pdf_file = io.BytesIO(file_content)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            
+            # Extract text from all pages
+            extracted_text = ""
+            for page in pdf_reader.pages:
+                extracted_text += page.extract_text() + "\n"
+            
+            extracted_text = extracted_text.strip()
+        else:  # .txt
+            # Read text file directly
+            try:
+                extracted_text = file_content.decode('utf-8').strip()
+            except UnicodeDecodeError:
+                try:
+                    extracted_text = file_content.decode('latin-1').strip()
+                except UnicodeDecodeError:
+                    extracted_text = "Could not decode text file"
+    except Exception as e:
+        print(f"Error extracting text: {e}")
+        extracted_text = f"Error extracting text: {str(e)}"
     
     # Save file to disk
     upload_dir = "uploads"
@@ -564,29 +651,168 @@ def get_rule_based_response(message: str) -> str:
     else:
         return "I can help you with: summarizing notes, explaining concepts, identifying key points, checking progress, and course recommendations. Please be more specific about what you need."
 
+@app.post("/analyze_image_debug")
+async def analyze_image_debug_endpoint(request: ImageAnalysisRequest):
+    """Analyze face image with debug overlay using refactored stable pipeline and store metrics"""
+    try:
+        student = get_student_by_id(request.student_id)
+        
+        # Analyze face with debug overlay using refactored pipeline
+        gaze_score, attention_score, cognitive_load, engagement_level, face_detected, debug_image = analyze_face_with_debug_overlay(
+            request.image_data, student.cognitive_limit
+        )
+        
+        # Detect emotional state using legacy function
+        emotional_state = "neutral"  # Default
+        if face_detected:
+            _, emotional_state = calculate_cognitive_load_legacy(gaze_score, student.cognitive_limit)
+        
+        # Store metrics in database with course_id
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor()
+                
+                # Get student's current course for metrics association
+                current_course_id = student.current_course_id
+                
+                cursor.execute("""
+                    INSERT INTO metrics_history 
+                    (student_id, course_id, gaze_score, face_attention, cognitive_load, 
+                     emotional_state, progress, session_duration)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    request.student_id, 
+                    current_course_id,  # Ensure course_id is stored
+                    gaze_score,
+                    attention_score,
+                    cognitive_load,
+                    emotional_state,
+                    0.0,  # Default progress
+                    2.0   # Default session duration (2 seconds per capture)
+                ))
+                
+                conn.commit()
+                
+        except Exception as e:
+            print(f"Error storing debug metrics: {e}")
+            # Continue without failing the analysis
+        
+        return {
+            "gaze_score": gaze_score,
+            "face_attention_score": attention_score,
+            "emotional_state": emotional_state,
+            "face_detected": face_detected,
+            "cognitive_load": cognitive_load,
+            "engagement_level": engagement_level,
+            "debug_image": debug_image,
+            "tracker_stable": stable_tracker.is_stable,
+            "consecutive_detections": stable_tracker.consecutive_detections,
+            "consecutive_misses": stable_tracker.consecutive_misses
+        }
+    except Exception as e:
+        print(f"Error in debug analysis: {e}")
+        return {
+            "gaze_score": 50.0,
+            "face_attention_score": 50.0,
+            "emotional_state": "neutral",
+            "face_detected": False,
+            "cognitive_load": 30.0,
+            "engagement_level": 40.0,
+            "debug_image": "",
+            "tracker_stable": False,
+            "consecutive_detections": 0,
+            "consecutive_misses": 0
+        }
+
 @app.post("/analyze_image", response_model=ImageAnalysisResponse)
 async def analyze_image_endpoint(request: ImageAnalysisRequest):
-    """Analyze face image for gaze tracking and emotional state"""
+    """Analyze face image using refactored stable pipeline and store metrics"""
     student = get_student_by_id(request.student_id)
     
-    # Analyze face from image
-    gaze_score, face_attention_score, face_detected = analyze_face_from_image(request.image_data)
+    # Analyze face using refactored stable pipeline
+    gaze_score, attention_score, cognitive_load, engagement_level, face_detected = analyze_face_from_image(
+        request.image_data, student.cognitive_limit
+    )
     
-    # Detect emotional state
-    emotional_state = detect_emotional_state(request.image_data) if face_detected else "neutral"
+    # Detect emotional state using legacy function
+    emotional_state = "neutral"  # Default
+    if face_detected:
+        _, emotional_state = calculate_cognitive_load_legacy(gaze_score, student.cognitive_limit)
     
-    # Calculate cognitive load and engagement
-    cognitive_load, _ = calculate_cognitive_load(gaze_score, student.cognitive_limit)
-    engagement_level = calculate_engagement(face_attention_score)
+    # Store metrics in database with course_id
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Get student's current course for metrics association
+            current_course_id = student.current_course_id
+            
+            cursor.execute("""
+                INSERT INTO metrics_history 
+                (student_id, course_id, gaze_score, face_attention, cognitive_load, 
+                 emotional_state, progress, session_duration)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                request.student_id, 
+                current_course_id,  # Ensure course_id is stored
+                gaze_score,
+                attention_score,
+                cognitive_load,
+                emotional_state,
+                0.0,  # Default progress
+                2.0   # Default session duration (2 seconds per capture)
+            ))
+            
+            conn.commit()
+            
+    except Exception as e:
+        print(f"Error storing metrics: {e}")
+        # Continue without failing the analysis
     
     return ImageAnalysisResponse(
         gaze_score=gaze_score,
-        face_attention_score=face_attention_score,
+        face_attention_score=attention_score,
         emotional_state=emotional_state,
         face_detected=face_detected,
         cognitive_load=cognitive_load,
         engagement_level=engagement_level
     )
+
+@app.post("/students/{student_id}/store_metrics")
+async def store_student_metrics(student_id: int, metrics_data: dict):
+    """Store student metrics with course_id association"""
+    try:
+        student = get_student_by_id(student_id)
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Get student's current course for metrics association
+            current_course_id = student.current_course_id
+            
+            cursor.execute("""
+                INSERT INTO metrics_history 
+                (student_id, course_id, gaze_score, face_attention, cognitive_load, 
+                 emotional_state, progress, session_duration)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                student_id, 
+                current_course_id,  # Ensure course_id is stored
+                metrics_data.get('gaze_score', 0.0),
+                metrics_data.get('face_attention', 0.0),
+                metrics_data.get('cognitive_load', 0.0),
+                metrics_data.get('emotional_state', 'neutral'),
+                metrics_data.get('progress', 0.0),
+                metrics_data.get('session_duration', 2.0)
+            ))
+            
+            conn.commit()
+            
+        return {"message": "Metrics stored successfully", "course_id": current_course_id}
+        
+    except Exception as e:
+        print(f"Error storing metrics: {e}")
+        raise HTTPException(status_code=500, detail=f"Error storing metrics: {str(e)}")
 
 @app.get("/students/{student_id}/notes", response_model=List[Note])
 async def get_student_notes(student_id: int):
@@ -603,7 +829,12 @@ async def get_student_notes(student_id: int):
 
 @app.get("/students/{student_id}/notes/{note_id}/content")
 async def get_note_content(student_id: int, note_id: int):
-    """Get the full content of a specific note"""
+    """Get note content (alias for frontend compatibility)"""
+    return await view_note(student_id, note_id)
+
+@app.get("/students/{student_id}/notes/{note_id}/view")
+async def view_note(student_id: int, note_id: int):
+    """View a note file content"""
     try:
         with get_db() as conn:
             cursor = conn.cursor()
@@ -620,16 +851,63 @@ async def get_note_content(student_id: int, note_id: int):
                 # For PDF, read file as bytes and extract text
                 with open(file_path, 'rb') as f:
                     pdf_content = f.read()
-                content = extract_text_from_pdf(pdf_content)
+                
+                try:
+                    import PyPDF2
+                    import io
+                    
+                    pdf_file = io.BytesIO(pdf_content)
+                    pdf_reader = PyPDF2.PdfReader(pdf_file)
+                    
+                    # Extract text from all pages
+                    extracted_text = ""
+                    for page in pdf_reader.pages:
+                        extracted_text += page.extract_text() + "\n"
+                    
+                    content = extracted_text.strip()
+                except Exception as e:
+                    content = f"Error extracting PDF content: {str(e)}"
             else:
                 # For text files
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                except UnicodeDecodeError:
+                    try:
+                        with open(file_path, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        content = "Could not decode text file"
             
             return {"content": content}
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error viewing note: {str(e)}")
+
+@app.get("/notes/{note_id}/download")
+async def download_note_public(note_id: int):
+    """Download a note file (public endpoint for frontend compatibility)"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT file_path FROM notes WHERE id = ?", (note_id,))
+            note_data = cursor.fetchone()
+            
+            if not note_data:
+                raise HTTPException(status_code=404, detail="Note not found")
+            
+            file_path = note_data["file_path"]
+            
+            # Return file for download
+            from fastapi.responses import FileResponse
+            return FileResponse(
+                path=file_path,
+                filename=f"note_{note_id}.txt",
+                media_type='text/plain'
+            )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error downloading note: {str(e)}")
 
 @app.get("/students/{student_id}/notes/{note_id}/download")
 async def download_note(student_id: int, note_id: int):

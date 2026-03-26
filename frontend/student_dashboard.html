@@ -206,6 +206,104 @@
             padding: 0 40px;
         }
 
+        /* Live Analysis Styles */
+        .analysis-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .camera-section, .metrics-section, .debug-section {
+            min-height: 0;
+        }
+        
+        .debug-section {
+            grid-column: 1 / -1;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .debug-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .debug-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .debug-label {
+            font-weight: 600;
+            color: #475569;
+        }
+        
+        .debug-value {
+            font-weight: 500;
+            color: #1e293b;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .status-indicator {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .status-indicator.active {
+            background: linear-gradient(135deg, #4ade80, #22c55e);
+            color: white;
+        }
+        
+        .status-indicator.inactive {
+            background: linear-gradient(135deg, #94a3b8, #64748b);
+            color: white;
+        }
+        
+        .status-indicator.error {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+            color: white;
+        }
+        
+        @media (max-width: 1024px) {
+            .analysis-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .debug-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* Tab Content */
         .tab-content {
             display: none;
@@ -2401,6 +2499,10 @@
             <span class="tab-icon">🎓</span>
             <span>Learning Hub</span>
         </button>
+        <button class="tab-btn" onclick="showTab('live-analysis')">
+            <span class="tab-icon">👁️</span>
+            <span>Live Analysis</span>
+        </button>
         <button class="tab-btn" onclick="showTab('notes')">
             <span class="tab-icon">📝</span>
             <span>Notes</span>
@@ -2662,6 +2764,114 @@
                 <div class="loading" id="learning-loading">
                     <div class="spinner"></div>
                     <p>Processing...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Analysis Tab -->
+        <div id="live-analysis" class="tab-content">
+            <div class="content-section">
+                <div class="section-header">
+                    <h2>👁️ Live Analysis</h2>
+                    <p>Real-time face tracking and gaze analysis with debug visualization</p>
+                </div>
+                
+                <div class="analysis-container">
+                    <!-- Camera Feed with Debug Overlay -->
+                    <div class="camera-section">
+                        <div class="section-card">
+                            <h3>📹 Live Camera Feed</h3>
+                            <div class="camera-container">
+                                <video id="liveCameraVideo" autoplay playsinline style="width: 100%; max-height: 400px; border-radius: 10px;"></video>
+                                <canvas id="debugCanvas" style="width: 100%; max-height: 400px; border-radius: 10px; display: none;"></canvas>
+                                
+                                <div class="camera-controls">
+                                    <div class="control-group">
+                                        <button id="startLiveAnalysisBtn" class="btn btn-primary" onclick="startLiveAnalysis()">
+                                            ▶️ Start Analysis
+                                        </button>
+                                        <button id="stopLiveAnalysisBtn" class="btn btn-danger" onclick="stopLiveAnalysis()" style="display: none;">
+                                            ⏹️ Stop Analysis
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="tracking-status">
+                                        <span class="status-indicator inactive" id="liveTrackingStatus">🔴 Analysis Inactive</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Real-time Metrics -->
+                    <div class="metrics-section">
+                        <div class="section-card">
+                            <h3>📊 Real-time Metrics</h3>
+                            <div class="metrics-grid">
+                                <div class="metric-card">
+                                    <div class="metric-icon">🎯</div>
+                                    <div class="metric-value" id="liveGazeMetric">--%</div>
+                                    <div class="metric-label">Gaze Score</div>
+                                </div>
+                                
+                                <div class="metric-card">
+                                    <div class="metric-icon">👁️</div>
+                                    <div class="metric-value" id="liveAttentionMetric">--%</div>
+                                    <div class="metric-label">Attention</div>
+                                </div>
+                                
+                                <div class="metric-card">
+                                    <div class="metric-icon">🧠</div>
+                                    <div class="metric-value" id="liveCognitiveMetric">--%</div>
+                                    <div class="metric-label">Cognitive Load</div>
+                                </div>
+                                
+                                <div class="metric-card">
+                                    <div class="metric-icon">💡</div>
+                                    <div class="metric-value" id="liveEngagementMetric">--%</div>
+                                    <div class="metric-label">Engagement</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Debug Information -->
+                    <div class="debug-section">
+                        <div class="section-card">
+                            <h3>🔍 Debug Information</h3>
+                            <div class="debug-grid">
+                                <div class="debug-item">
+                                    <span class="debug-label">Gaze Direction:</span>
+                                    <span class="debug-value" id="debugGazeDirection">--</span>
+                                </div>
+                                
+                                <div class="debug-item">
+                                    <span class="debug-label">Gaze Ratio:</span>
+                                    <span class="debug-value" id="debugGazeRatio">--</span>
+                                </div>
+                                
+                                <div class="debug-item">
+                                    <span class="debug-label">Head Pose:</span>
+                                    <span class="debug-value" id="debugHeadPose">--</span>
+                                </div>
+                                
+                                <div class="debug-item">
+                                    <span class="debug-label">Blinking:</span>
+                                    <span class="debug-value" id="debugBlinking">--</span>
+                                </div>
+                                
+                                <div class="debug-item">
+                                    <span class="debug-label">Face Detected:</span>
+                                    <span class="debug-value" id="debugFaceDetected">--</span>
+                                </div>
+                                
+                                <div class="debug-item">
+                                    <span class="debug-label">Confidence:</span>
+                                    <span class="debug-value" id="debugConfidence">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2959,6 +3169,11 @@
                 course.progress = progress;
                 course.progressPercentage = progress.toFixed(1);
                 
+                // Add analytics data for display
+                course.avgCognitiveLoad = course.avg_cognitive_load || 0;
+                course.avgEngagement = course.avg_engagement || 0;
+                course.timeSpent = course.time_spent_minutes || 0;
+                
                 // More robust progress comparison
                 if (progress >= 99.9) { // Consider 99.9%+ as completed (handles floating point precision)
                     completedCourses.push(course);
@@ -3169,21 +3384,22 @@
                 z-index: 1000; backdrop-filter: blur(5px);
             `;
             
-            // Calculate performance metrics
-            const avgCognitiveLoad = metrics.length > 0 ? 
-                (metrics.reduce((sum, m) => sum + (m.cognitive_load || 0), 0) / metrics.length).toFixed(1) : 'N/A';
-            const avgEngagement = metrics.length > 0 ? 
-                (metrics.reduce((sum, m) => sum + (m.engagement_level || 0), 0) / metrics.length).toFixed(1) : 'N/A';
+            // Use course analytics data directly, not calculate from metrics
+            const avgCognitiveLoad = progress && progress.avg_cognitive_load ? 
+                progress.avg_cognitive_load.toFixed(1) : 'N/A';
+            const avgEngagement = progress && progress.avg_engagement ? 
+                progress.avg_engagement.toFixed(1) : 'N/A';
             const totalTimeSpent = progress ? progress.time_spent_minutes : 0;
-            const completionDate = progress && progress.course_completed ? 
-                new Date().toLocaleDateString() : 'N/A';
+            const completionDate = progress && progress.completion_date ? 
+                new Date(progress.completion_date).toLocaleDateString() : 'N/A';
             
-            console.log('Calculated metrics:', {
+            console.log('Course review data:', {
+                course: course.title,
+                progress: progress,
                 avgCognitiveLoad,
-                avgEngagement, 
+                avgEngagement,
                 totalTimeSpent,
-                metricsCount: metrics.length,
-                sampleMetrics: metrics.slice(0, 2)
+                completionDate
             });
             
             // Determine performance level
@@ -4486,23 +4702,23 @@
             let gazeScore = 0.75; // Default fallback value
             let faceAttentionScore = 0.75; // Default fallback value
             
-            // Safely extract gaze score (handle -- values)
+            // Safely extract gaze score (handle -- values) - now 0-100 scale
             const gazeMetricElement = document.getElementById('gazeMetric');
             if (gazeMetricElement && gazeMetricElement.textContent) {
                 const gazeText = gazeMetricElement.textContent.replace('%', '').replace('--', '0').trim();
                 const gazeValue = parseFloat(gazeText);
                 if (!isNaN(gazeValue) && isFinite(gazeValue)) {
-                    gazeScore = gazeValue / 100;
+                    gazeScore = gazeValue / 100; // Convert to 0-1 for backend
                 }
             }
             
-            // Safely extract attention score (handle -- values)
+            // Safely extract attention score (handle -- values) - now 0-100 scale
             const attentionMetricElement = document.getElementById('attentionMetric');
             if (attentionMetricElement && attentionMetricElement.textContent) {
                 const attentionText = attentionMetricElement.textContent.replace('%', '').replace('--', '0').trim();
                 const attentionValue = parseFloat(attentionText);
                 if (!isNaN(attentionValue) && isFinite(attentionValue)) {
-                    faceAttentionScore = attentionValue / 100;
+                    faceAttentionScore = attentionValue / 100; // Convert to 0-1 for backend
                 }
             }
             
@@ -5069,23 +5285,23 @@
             let gazeScore = 0.75; // Default fallback value
             let faceAttentionScore = 0.75; // Default fallback value
             
-            // Safely extract gaze score
+            // Safely extract gaze score - now 0-100 scale
             const gazeMetricElement = document.getElementById('gazeMetric');
             if (gazeMetricElement && gazeMetricElement.textContent) {
                 const gazeText = gazeMetricElement.textContent.replace('%', '').trim();
                 const gazeValue = parseFloat(gazeText);
                 if (!isNaN(gazeValue) && isFinite(gazeValue)) {
-                    gazeScore = gazeValue / 100;
+                    gazeScore = gazeValue / 100; // Convert to 0-1 for backend
                 }
             }
             
-            // Safely extract attention score
+            // Safely extract attention score - now 0-100 scale
             const attentionMetricElement = document.getElementById('attentionMetric');
             if (attentionMetricElement && attentionMetricElement.textContent) {
                 const attentionText = attentionMetricElement.textContent.replace('%', '').trim();
                 const attentionValue = parseFloat(attentionText);
                 if (!isNaN(attentionValue) && isFinite(attentionValue)) {
-                    faceAttentionScore = attentionValue / 100;
+                    faceAttentionScore = attentionValue / 100; // Convert to 0-1 for backend
                 }
             }
             
@@ -5772,7 +5988,150 @@
             }, 2000);
         }
         
-        // Update showTab function to load notes when chatbot tab is opened
+        // Live Analysis Functions
+        let liveAnalysisInterval = null;
+        let liveStream = null;
+        
+        function startLiveAnalysis() {
+            console.log('Starting live analysis');
+            
+            const video = document.getElementById('liveCameraVideo');
+            const startBtn = document.getElementById('startLiveAnalysisBtn');
+            const stopBtn = document.getElementById('stopLiveAnalysisBtn');
+            const status = document.getElementById('liveTrackingStatus');
+            
+            // Start camera
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    liveStream = stream;
+                    video.srcObject = stream;
+                    
+                    // Update UI
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                    status.textContent = '🟢 Analysis Active';
+                    status.className = 'status-indicator active';
+                    
+                    // Start analysis interval
+                    liveAnalysisInterval = setInterval(() => {
+                        analyzeLiveFrame();
+                    }, 2000); // Analyze every 2 seconds
+                    
+                    console.log('Live analysis started successfully');
+                })
+                .catch(err => {
+                    console.error('Error accessing camera:', err);
+                    status.textContent = '🔴 Camera Error';
+                    status.className = 'status-indicator error';
+                });
+        }
+        
+        function stopLiveAnalysis() {
+            console.log('Stopping live analysis');
+            
+            const video = document.getElementById('liveCameraVideo');
+            const startBtn = document.getElementById('startLiveAnalysisBtn');
+            const stopBtn = document.getElementById('stopLiveAnalysisBtn');
+            const status = document.getElementById('liveTrackingStatus');
+            
+            // Stop camera stream
+            if (liveStream) {
+                liveStream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                liveStream = null;
+            }
+            
+            // Stop analysis interval
+            if (liveAnalysisInterval) {
+                clearInterval(liveAnalysisInterval);
+                liveAnalysisInterval = null;
+            }
+            
+            // Update UI
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            status.textContent = '🔴 Analysis Inactive';
+            status.className = 'status-indicator inactive';
+            
+            // Reset metrics
+            document.getElementById('liveGazeMetric').textContent = '--%';
+            document.getElementById('liveAttentionMetric').textContent = '--%';
+            document.getElementById('liveCognitiveMetric').textContent = '--%';
+            document.getElementById('liveEngagementMetric').textContent = '--%';
+            
+            // Reset debug info
+            document.getElementById('debugGazeDirection').textContent = '--';
+            document.getElementById('debugGazeRatio').textContent = '--';
+            document.getElementById('debugHeadPose').textContent = '--';
+            document.getElementById('debugBlinking').textContent = '--';
+            document.getElementById('debugFaceDetected').textContent = '--';
+            document.getElementById('debugConfidence').textContent = '--';
+        }
+        
+        async function analyzeLiveFrame() {
+            const video = document.getElementById('liveCameraVideo');
+            const studentId = parseInt(localStorage.getItem('student_id'));
+            
+            if (!video.srcObject || !studentId) {
+                return;
+            }
+            
+            try {
+                // Capture frame from video
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                // Convert to base64
+                const imageData = canvas.toDataURL('image/jpeg');
+                
+                // Send to debug endpoint
+                const response = await fetch(`${API_BASE}/analyze_image_debug`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image_data: imageData,
+                        student_id: studentId
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update metrics
+                    document.getElementById('liveGazeMetric').textContent = Math.round(data.gaze_score) + '%';
+                    document.getElementById('liveAttentionMetric').textContent = Math.round(data.face_attention_score) + '%';
+                    document.getElementById('liveCognitiveMetric').textContent = Math.round(data.cognitive_load) + '%';
+                    document.getElementById('liveEngagementMetric').textContent = Math.round(data.engagement_level) + '%';
+                    
+                    // Update debug info (extract from console logs or add to response)
+                    document.getElementById('debugFaceDetected').textContent = data.face_detected ? 'Yes' : 'No';
+                    
+                    // Display debug image if available
+                    if (data.debug_image) {
+                        const debugCanvas = document.getElementById('debugCanvas');
+                        const debugCtx = debugCanvas.getContext('2d');
+                        const debugImg = new Image();
+                        debugImg.onload = function() {
+                            debugCanvas.width = debugImg.width;
+                            debugCanvas.height = debugImg.height;
+                            debugCtx.drawImage(debugImg, 0, 0);
+                            debugCanvas.style.display = 'block';
+                            video.style.display = 'none';
+                        };
+                        debugImg.src = 'data:image/jpeg;base64,' + data.debug_image;
+                    }
+                }
+            } catch (error) {
+                console.error('Error analyzing live frame:', error);
+            }
+        }
+        
+        // Update showTab function to handle live analysis tab
         function showTab(tabName) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
@@ -5809,6 +6168,9 @@
             } else if (tabName === 'chatbot') {
                 // Load notes dropdown when chatbot tab is opened
                 loadChatNotesDropdown();
+            } else if (tabName === 'live-analysis') {
+                // Stop any existing analysis when switching to live analysis tab
+                stopLiveAnalysis();
             }
         }
         
@@ -6273,11 +6635,11 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Validate and sanitize the data before updating UI
-                    const gazeScore = Math.max(0, Math.min(1, parseFloat(data.gaze_score || 0)));
-                    const attentionScore = Math.max(0, Math.min(1, parseFloat(data.face_attention_score || 0)));
-                    const cognitiveLoad = Math.max(0, Math.min(1, parseFloat(data.cognitive_load || 0)));
-                    const engagementLevel = Math.max(0, Math.min(1, parseFloat(data.engagement_level || 0)));
+                    // Parse and validate response data (backend now returns 0-100 scale)
+                    const gazeScore = Math.max(0, Math.min(100, parseFloat(data.gaze_score || 0)));
+                    const attentionScore = Math.max(0, Math.min(100, parseFloat(data.face_attention_score || 0)));
+                    const cognitiveLoad = Math.max(0, Math.min(100, parseFloat(data.cognitive_load || 0)));
+                    const engagementLevel = Math.max(0, Math.min(100, parseFloat(data.engagement_level || 0)));
                     
                     console.log('Analytics data received:', {
                         gaze_score: gazeScore,
@@ -6286,12 +6648,12 @@
                         engagement_level: engagementLevel
                     });
                     
-                    // Update metrics with validated data (convert to percentages)
+                    // Update metrics with validated data (backend now returns 0-100 scale directly)
                     // Show "--" for 0 values (no face detected)
-                    document.getElementById('gazeMetric').textContent = gazeScore === 0 ? '--%' : Math.round(gazeScore * 100) + '%';
-                    document.getElementById('attentionMetric').textContent = attentionScore === 0 ? '--%' : Math.round(attentionScore * 100) + '%';
-                    document.getElementById('cognitiveMetric').textContent = cognitiveLoad === 0 ? '--%' : Math.round(cognitiveLoad * 100) + '%';
-                    document.getElementById('engagementMetric').textContent = engagementLevel === 0 ? '--%' : Math.round(engagementLevel * 100) + '%';
+                    document.getElementById('gazeMetric').textContent = gazeScore === 0 ? '--%' : Math.round(gazeScore) + '%';
+                    document.getElementById('attentionMetric').textContent = attentionScore === 0 ? '--%' : Math.round(attentionScore) + '%';
+                    document.getElementById('cognitiveMetric').textContent = cognitiveLoad === 0 ? '--%' : Math.round(cognitiveLoad) + '%';
+                    document.getElementById('engagementMetric').textContent = engagementLevel === 0 ? '--%' : Math.round(engagementLevel) + '%';
                 } else {
                     console.error('Analytics API error:', data.detail);
                     // Use default values on API error
@@ -6306,10 +6668,10 @@
 
 // Set default analytics values when camera/API fails
 function setDefaultAnalyticsValues() {
-    const defaultGaze = 75; // 75%
-    const defaultAttention = 75; // 75%
-    const defaultCognitive = 50; // 50%
-    const defaultEngagement = 75; // 75%
+    const defaultGaze = 50; // 50% - more realistic middle value
+    const defaultAttention = 50; // 50% - more realistic middle value
+    const defaultCognitive = 30; // 30% - lower cognitive load when no data
+    const defaultEngagement = 40; // 40% - moderate engagement when no data
     
     document.getElementById('gazeMetric').textContent = defaultGaze + '%';
     document.getElementById('attentionMetric').textContent = defaultAttention + '%';

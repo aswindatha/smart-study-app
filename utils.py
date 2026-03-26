@@ -1,416 +1,295 @@
-import re
 import cv2
+import mediapipe as mp
 import numpy as np
-from typing import Tuple
-import PyPDF2
-from io import BytesIO
 import base64
+import math
+from typing import Tuple, List, Optional
+from collections import deque
+import logging
 
-def calculate_cognitive_load(gaze_score: float, student_cognitive_limit: int) -> Tuple[float, str]:
-    """
-    Calculate cognitive load and emotional state based on gaze score and student's cognitive limit
-    
-    Args:
-        gaze_score: 0 to 1 (1 = perfect gaze tracking, 0 = poor tracking)
-        student_cognitive_limit: student's cognitive limit threshold (typically 50-80)
-    
-    Returns:
-        Tuple of (cognitive_load, emotional_state)
-    """
-    # Base cognitive load from gaze score (inverted: poor gaze = higher load)
-    base_load = (1 - gaze_score) * 60  # 0-60% base load
-    
-    # Add some variability and realistic factors
-    # Add random variation to simulate natural cognitive fluctuations
-    import random
-    variation = random.uniform(-10, 15)  # ±10-15% variation
-    
-    # Consider student's cognitive limit - adjust load accordingly
-    if student_cognitive_limit > 70:  # High cognitive limit student
-        limit_factor = 0.8  # Can handle more load
-    elif student_cognitive_limit > 50:  # Average student
-        limit_factor = 1.0  # Normal load
-    else:  # Lower cognitive limit student
-        limit_factor = 1.2  # More affected by load
-    
-    # Calculate final cognitive load
-    cognitive_load = max(15, min(95, (base_load + variation) * limit_factor))  # Clamp between 15-95%
-    
-    # Emotional state based on cognitive load vs student's limit
-    if cognitive_load > student_cognitive_limit * 1.2:
-        emotional_state = "overwhelmed"
-    elif cognitive_load > student_cognitive_limit:
-        emotional_state = "stressed"
-    elif cognitive_load > student_cognitive_limit * 0.6:
-        emotional_state = "focused"
-    elif cognitive_load > student_cognitive_limit * 0.3:
-        emotional_state = "relaxed"
-    else:
-        emotional_state = "bored"
-    
-    return cognitive_load, emotional_state
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def calculate_engagement(face_attention_score: float) -> float:
-    """
-    Calculate engagement level based on face attention score with realistic variations
-    
-    Args:
-        face_attention_score: 0 to 1 (1 = full attention, 0 = no attention)
-    
-    Returns:
-        Engagement percentage (0 to 100)
-    """
-    import random
-    
-    # Base engagement from face attention
-    base_engagement = face_attention_score * 80  # Max 80% base from attention
-    
-    # Add realistic variation (attention fluctuates naturally)
-    variation = random.uniform(-15, 20)  # ±15-20% variation
-    
-    # Add some baseline engagement (even with poor attention, there's some engagement)
-    baseline = random.uniform(5, 15)  # 5-15% baseline
-    
-    # Calculate final engagement
-    engagement = max(10, min(95, base_engagement + variation + baseline))
-    
-    return engagement
+# -------------------- INIT --------------------
+mp_face_mesh = mp.solutions.face_mesh
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
 
-def simple_text_summarizer(text: str, max_sentences: int = 3) -> str:
+# -------------------- LANDMARKS --------------------
+LEFT_IRIS = [474, 475, 476, 477]
+RIGHT_IRIS = [469, 470, 471, 472]
+LEFT_EYE_POINTS = [33, 160, 158, 133, 153, 144]
+RIGHT_EYE_POINTS = [362, 385, 387, 263, 373, 380]
+
+class CleanAnalyticsTracker:
     """
-    Simple text summarizer using extractive approach
-    
-    Args:
-        text: Input text to summarize
-        max_sentences: Maximum number of sentences in summary
-    
-    Returns:
-        Summarized text
+    Clean and efficient learning analytics tracker based on cog_anltycs.py
     """
-    if not text or len(text.strip()) < 50:
-        return text
-    
-    # Split into sentences
-    sentences = re.split(r'[.!?]+', text)
-    sentences = [s.strip() for s in sentences if s.strip()]
-    
-    if len(sentences) <= max_sentences:
-        return '. '.join(sentences)
-    
-    # Simple scoring: longer sentences and those with important keywords
-    important_words = ['important', 'key', 'main', 'primary', 'essential', 'crucial', 'significant']
-    
-    scored_sentences = []
-    for i, sentence in enumerate(sentences):
-        score = len(sentence)  # Longer sentences get higher scores
+    def __init__(self, buffer_size=8, confidence_threshold=0.5):
+        self.buffer_size = buffer_size
+        self.confidence_threshold = confidence_threshold
         
-        # Bonus for important keywords
-        for word in important_words:
-            if word.lower() in sentence.lower():
-                score += 20
-        
-        # Position bonus (first and last sentences are often important)
-        if i == 0 or i == len(sentences) - 1:
-            score += 10
-            
-        scored_sentences.append((score, sentence))
-    
-    # Sort by score and take top sentences
-    scored_sentences.sort(reverse=True)
-    top_sentences = [sent[1] for sent in scored_sentences[:max_sentences]]
-    
-    # Reorder based on original position
-    final_summary = []
-    for sentence in sentences:
-        if sentence in top_sentences and len(final_summary) < max_sentences:
-            final_summary.append(sentence)
-    
-    return '. '.join(final_summary) + '.'
-
-def extract_text_from_pdf(pdf_content: bytes) -> str:
-    """
-    Extract text from PDF file
-    
-    Args:
-        pdf_content: PDF file content as bytes
-    
-    Returns:
-        Extracted text
-    """
-    try:
-        pdf_file = BytesIO(pdf_content)
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-        
-        return text.strip()
-    except Exception as e:
-        return f"Error extracting PDF text: {str(e)}"
-
-def extract_text_from_txt(txt_content: bytes) -> str:
-    """
-    Extract text from TXT file
-    
-    Args:
-        txt_content: TXT file content as bytes
-    
-    Returns:
-        Extracted text
-    """
-    try:
-        return txt_content.decode('utf-8')
-    except UnicodeDecodeError:
+        # Initialize MediaPipe Face Mesh
         try:
-            return txt_content.decode('latin-1')
+            self.face_mesh = mp_face_mesh.FaceMesh(
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=confidence_threshold,
+                min_tracking_confidence=confidence_threshold
+            )
+            logger.info("MediaPipe Face Mesh initialized successfully")
         except Exception as e:
-            return f"Error decoding text file: {str(e)}"
+            logger.error(f"Error initializing MediaPipe Face Mesh: {e}")
+            self.face_mesh = None
+        
+        # -------------------- SMOOTHING --------------------
+        self.gaze_buffer = deque(maxlen=buffer_size)
+        self.attention_buffer = deque(maxlen=buffer_size)
+        self.load_buffer = deque(maxlen=buffer_size)
+        self.engagement_buffer = deque(maxlen=buffer_size)
+        
+        # Fallback values
+        self.last_valid_gaze = 50.0
+        self.last_valid_attention = 50.0
+        self.last_valid_cognitive = 30.0
+        self.last_valid_engagement = 40.0
+    
+    def get_point(self, landmarks, idx, w, h):
+        """Get landmark point as numpy array"""
+        return np.array([int(landmarks[idx].x * w), int(landmarks[idx].y * h)])
+    
+    def distance(self, p1, p2):
+        """Calculate distance between two points"""
+        return np.linalg.norm(p1 - p2)
+    
+    def compute_ear(self, landmarks, eye_points, w, h):
+        """Compute Eye Aspect Ratio for blink detection"""
+        p1 = self.get_point(landmarks, eye_points[0], w, h)
+        p2 = self.get_point(landmarks, eye_points[1], w, h)
+        p3 = self.get_point(landmarks, eye_points[2], w, h)
+        p4 = self.get_point(landmarks, eye_points[3], w, h)
+        p5 = self.get_point(landmarks, eye_points[4], w, h)
+        p6 = self.get_point(landmarks, eye_points[5], w, h)
 
-def get_cognitive_load_level(cognitive_load: float) -> str:
-    """
-    Get cognitive load level category
-    
-    Args:
-        cognitive_load: Cognitive load percentage (0-100)
-    
-    Returns:
-        Level category (low, medium, high, critical)
-    """
-    if cognitive_load < 30:
-        return "low"
-    elif cognitive_load < 60:
-        return "medium"
-    elif cognitive_load < 80:
-        return "high"
-    else:
-        return "critical"
+        vertical1 = self.distance(p2, p6)
+        vertical2 = self.distance(p3, p5)
+        horizontal = self.distance(p1, p4)
 
-def get_recommended_next_course(student_id: int, current_course_id: int) -> int:
-    """
-    Get next recommended course for student
+        if horizontal == 0:
+            return 0.3  # Default value
+        
+        return (vertical1 + vertical2) / (2.0 * horizontal)
     
-    Args:
-        student_id: Student ID
-        current_course_id: Current course ID
+    def iris_center(self, landmarks, iris_idx, w, h):
+        """Calculate iris center from iris landmarks"""
+        pts = [self.get_point(landmarks, i, w, h) for i in iris_idx]
+        return np.mean(pts, axis=0)
     
-    Returns:
-        Next course ID (or current_course_id + 1 if available)
-    """
-    # Simple recommendation: next course in sequence
-    # In a real app, this would be more sophisticated
-    return current_course_id + 1 if current_course_id else 1
+    def smooth(self, buffer, value):
+        """Apply smoothing using moving average"""
+        buffer.append(value)
+        return sum(buffer) / len(buffer)
+    
+    def analyze_frame(self, img: np.ndarray, student_cognitive_limit: int = 50) -> Tuple[float, float, float, float, bool]:
+        """
+        Analyze a single frame for learning analytics
+        Returns: (gaze_score, attention_score, cognitive_load, engagement, face_detected)
+        """
+        if self.face_mesh is None:
+            logger.error("MediaPipe Face Mesh not initialized")
+            return self.get_fallback_values()
+        
+        h, w, _ = img.shape
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = self.face_mesh.process(rgb)
 
-def analyze_face_from_image(image_data: str) -> Tuple[float, float, bool]:
+        # Default values
+        gaze_score = 0
+        attention_score = 0
+        cognitive_load = 100
+        engagement = 0
+        face_detected = False
+
+        if results.multi_face_landmarks:
+            face = results.multi_face_landmarks[0].landmark
+            face_detected = True
+
+            # -------- EAR --------
+            ear_left = self.compute_ear(face, LEFT_EYE_POINTS, w, h)
+            ear_right = self.compute_ear(face, RIGHT_EYE_POINTS, w, h)
+            ear = (ear_left + ear_right) / 2.0
+
+            eye_opening = np.clip((ear - 0.15) / (0.35 - 0.15), 0, 1)
+
+            # -------- BLINK --------
+            blink = ear < 0.18
+
+            # -------- HEAD POSE --------
+            nose = self.get_point(face, 1, w, h)
+            yaw = (nose[0] - w / 2) / w * 100
+            pitch = (nose[1] - h / 2) / h * 100
+            head_penalty = min(25, (abs(yaw) + abs(pitch)) / 2.5)
+
+            # -------- METRICS --------
+            gaze_score = eye_opening * 100
+
+            attention_score = eye_opening * 100
+            if blink:
+                attention_score -= 30
+            attention_score -= head_penalty
+            attention_score = np.clip(attention_score, 0, 100)
+
+            cognitive_load = (1 - eye_opening) * 80 + 10
+            cognitive_load = np.clip(cognitive_load, 10, 95)
+
+            engagement = attention_score * 0.9
+            engagement = np.clip(engagement, 5, 100)
+
+            # -------- SMOOTH --------
+            gaze_score = self.smooth(self.gaze_buffer, gaze_score)
+            attention_score = self.smooth(self.attention_buffer, attention_score)
+            cognitive_load = self.smooth(self.load_buffer, cognitive_load)
+            engagement = self.smooth(self.engagement_buffer, engagement)
+
+            # Update fallback values
+            self.last_valid_gaze = gaze_score
+            self.last_valid_attention = attention_score
+            self.last_valid_cognitive = cognitive_load
+            self.last_valid_engagement = engagement
+
+            logger.info(f"Face detected - Gaze: {gaze_score:.1f}%, Attention: {attention_score:.1f}%, "
+                       f"Cognitive: {cognitive_load:.1f}%, Engagement: {engagement:.1f}%")
+        else:
+            logger.info("No face detected")
+            return self.get_fallback_values()
+
+        return gaze_score, attention_score, cognitive_load, engagement, face_detected
+    
+    def get_fallback_values(self) -> Tuple[float, float, float, float, bool]:
+        """Get last known valid values when no face detected"""
+        return (
+            self.last_valid_gaze,
+            self.last_valid_attention,
+            self.last_valid_cognitive,
+            self.last_valid_engagement,
+            False
+        )
+    
+    def draw_debug_overlay(self, img: np.ndarray, gaze_score: float, attention_score: float, 
+                          cognitive_load: float, engagement: float, face_detected: bool) -> np.ndarray:
+        """Draw debug overlay with metrics visualization"""
+        overlay_img = img.copy()
+        
+        def draw_bar(y, label, value, color):
+            cv2.putText(overlay_img, f"{label}: {int(value)}%", (10, y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            cv2.rectangle(overlay_img, (150, y - 15),
+                         (150 + int(value * 2), y - 5), color, -1)
+
+        draw_bar(30, "Gaze", gaze_score, (0, 255, 0))
+        draw_bar(60, "Attention", attention_score, (255, 255, 0))
+        draw_bar(90, "Cognitive Load", cognitive_load, (0, 0, 255))
+        draw_bar(120, "Engagement", engagement, (255, 0, 255))
+        
+        # Add face detection status
+        status_text = "Face Detected" if face_detected else "No Face"
+        status_color = (0, 255, 0) if face_detected else (0, 0, 255)
+        cv2.putText(overlay_img, status_text, (10, 160), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
+        
+        return overlay_img
+
+# Global tracker instance
+clean_tracker = CleanAnalyticsTracker()
+
+def analyze_face_from_image(image_data: str, student_cognitive_limit: int = 50) -> Tuple[float, float, float, float, bool]:
     """
-    Analyze face from base64 image data to extract gaze and attention metrics
-    
-    Args:
-        image_data: Base64 encoded image string
-    
-    Returns:
-        Tuple of (gaze_score, face_attention_score, face_detected)
+    Main face analysis function using clean analytics approach
+    Returns: (gaze_score, attention_score, cognitive_load, engagement_level, face_detected)
+    All scores are in 0-100 range
     """
     try:
-        # Decode base64 image
+        # Decode image
         image_data = image_data.split(',')[1] if ',' in image_data else image_data
         image_bytes = base64.b64decode(image_data)
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
         if img is None:
-            return 0.0, 0.0, False  # No scores when no image
+            logger.error("Failed to decode image")
+            return clean_tracker.get_fallback_values()
         
-        # Load face cascade classifier
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-        
-        # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Detect faces
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-        
-        if len(faces) == 0:
-            return 0.0, 0.0, False  # No scores when no face detected
-        
-        # Get the largest face
-        face = max(faces, key=lambda x: x[2] * x[3])
-        x, y, w, h = face
-        
-        # Extract face region
-        face_region = gray[y:y+h, x:x+w]
-        
-        # Detect eyes in face region
-        eyes = eye_cascade.detectMultiScale(face_region, 1.1, 3)
-        
-        # Initialize scores with realistic defaults
-        gaze_score = 0.4  # Default moderate gaze
-        face_attention_score = 0.5  # Default moderate attention
-        
-        if len(eyes) >= 2:
-            # Eyes detected - calculate gaze based on eye position and size
-            eye_areas = [eye[2] * eye[3] for eye in eyes]
-            avg_eye_area = np.mean(eye_areas)
-            face_area = w * h
-            
-            # More realistic gaze score calculation
-            eye_to_face_ratio = avg_eye_area / face_area if face_area > 0 else 0
-            
-            # Base gaze score on eye detection quality (not just size)
-            # Typical eye-to-face ratio is around 0.01-0.03
-            if 0.01 <= eye_to_face_ratio <= 0.05:
-                gaze_score = 0.8  # Good eye detection
-            elif 0.005 <= eye_to_face_ratio < 0.01 or 0.05 < eye_to_face_ratio <= 0.1:
-                gaze_score = 0.6  # Moderate eye detection
-            else:
-                gaze_score = 0.3  # Poor eye detection
-            
-            # Face attention based on face size and position
-            img_center_x = img.shape[1] / 2
-            face_center_x = x + w / 2
-            
-            # Center alignment score (closer to center = higher attention)
-            center_distance = abs(face_center_x - img_center_x)
-            max_distance = img.shape[1] / 2
-            center_score = max(0, 1 - (center_distance / max_distance))
-            
-            # Size score (not too small, not too large)
-            face_ratio = (w * h) / (img.shape[0] * img.shape[1])
-            if 0.02 <= face_ratio <= 0.15:  # Good face size
-                size_score = 1.0
-            elif 0.01 <= face_ratio < 0.02 or 0.15 < face_ratio <= 0.25:
-                size_score = 0.7
-            else:
-                size_score = 0.4
-            
-            face_attention_score = (center_score * 0.6 + size_score * 0.4)
-        
-        # Enhanced eye openness detection
-        if len(eyes) >= 2:
-            total_eye_openness = 0
-            valid_eyes = 0
-            
-            for (ex, ey, ew, eh) in eyes[:2]:  # Take first 2 eyes
-                if ex >= 0 and ey >= 0 and ex + ew <= face_region.shape[1] and ey + eh <= face_region.shape[0]:
-                    eye_roi = face_region[ey:ey+eh, ex:ex+ew]
-                    
-                    # Enhanced eye openness detection using multiple methods
-                    # Method 1: Brightness analysis (white pixels in eye area)
-                    _, thresh = cv2.threshold(eye_roi, 80, 255, cv2.THRESH_BINARY)
-                    white_pixels = np.sum(thresh == 255)
-                    total_pixels = eye_roi.size
-                    brightness_openness = white_pixels / total_pixels if total_pixels > 0 else 0
-                    
-                    # Method 2: Variance analysis (open eyes have more variance)
-                    variance = np.var(eye_roi)
-                    variance_openness = min(1.0, variance / 1000)  # Normalize variance
-                    
-                    # Method 3: Edge detection (open eyes have more edges)
-                    edges = cv2.Canny(eye_roi, 50, 150)
-                    edge_pixels = np.sum(edges > 0)
-                    edge_openness = min(1.0, edge_pixels / (eye_roi.size * 0.1))
-                    
-                    # Combine methods for more robust detection
-                    combined_openness = (brightness_openness * 0.4 + variance_openness * 0.3 + edge_openness * 0.3)
-                    
-                    # If eye is likely closed (low openness), reduce gaze score significantly
-                    if combined_openness < 0.15:  # Likely closed eyes
-                        gaze_score *= 0.3  # Major reduction for closed eyes
-                    elif combined_openness < 0.25:  # Partially closed/squinting
-                        gaze_score *= 0.6  # Moderate reduction
-                    # If eyes are open, slightly increase gaze score
-                    elif combined_openness > 0.4:
-                        gaze_score = min(1.0, gaze_score * 1.1)
-                    
-                    total_eye_openness += combined_openness
-                    valid_eyes += 1
-            
-            # Average eye openness for debugging
-            avg_openness = total_eye_openness / valid_eyes if valid_eyes > 0 else 0
-            print(f"Eye openness: {avg_openness:.3f}, Adjusted gaze: {gaze_score:.3f}")
-        
-        else:
-            # No eyes detected - return 0 scores
-            return 0.0, 0.0, True
-        
-        # Add some realistic variation and ensure values are in valid range
-        gaze_score = max(0.1, min(1.0, gaze_score))
-        face_attention_score = max(0.2, min(1.0, face_attention_score))
-        
-        # Add small random variation to make it more realistic (±5%)
-        import random
-        gaze_score += random.uniform(-0.05, 0.05)
-        face_attention_score += random.uniform(-0.05, 0.05)
-        
-        # Final clamp to ensure valid range
-        gaze_score = max(0.0, min(1.0, gaze_score))
-        face_attention_score = max(0.0, min(1.0, face_attention_score))
-        
-        return gaze_score, face_attention_score, True
+        # Analyze using clean tracker
+        return clean_tracker.analyze_frame(img, student_cognitive_limit)
         
     except Exception as e:
-        print(f"Error analyzing face: {str(e)}")
-        return 0.0, 0.0, False  # No scores on error
+        logger.error(f"Error in face analysis: {e}")
+        return clean_tracker.get_fallback_values()
 
-def detect_emotional_state(face_image_data: str) -> str:
+def analyze_face_with_debug_overlay(image_data: str, student_cognitive_limit: int = 50) -> \
+        Tuple[float, float, float, float, bool, str]:
     """
-    Detect emotional state from face image (simplified)
-    
-    Args:
-        face_image_data: Base64 encoded face image
-    
-    Returns:
-        Emotional state (stress, normal, relaxed)
+    Analyze face with debug overlay using clean analytics
+    Returns: (gaze, attention, cognitive, engagement, face_detected, debug_image_base64)
     """
     try:
-        # Decode image
-        image_data = face_image_data.split(',')[1] if ',' in face_image_data else face_image_data
-        image_bytes = base64.b64decode(image_data)
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        # Perform regular analysis
+        gaze, attention, cognitive, engagement, face_detected = analyze_face_from_image(
+            image_data, student_cognitive_limit)
         
-        if img is None:
-            return "normal"
-        
-        # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Simple emotion detection based on facial feature analysis
-        # This is a simplified version - real emotion detection would use ML models
-        
-        # Detect face
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-        
-        if len(faces) == 0:
-            return "normal"
-        
-        # Get the largest face
-        face = max(faces, key=lambda x: x[2] * x[3])
-        x, y, w, h = face
-        
-        # Extract face region
-        face_region = gray[y:y+h, x:x+w]
-        
-        # Simple analysis: check for mouth curvature and eye openness
-        # Upper third of face (eyes area)
-        eye_region = face_region[:int(h*0.4), :]
-        # Lower third of face (mouth area)
-        mouth_region = face_region[int(h*0.6):, :]
-        
-        # Calculate variance in these regions (simplified emotion indicator)
-        eye_variance = np.var(eye_region)
-        mouth_variance = np.var(mouth_region)
-        
-        # Very simplified emotion classification
-        if eye_variance < 100 and mouth_variance < 200:
-            return "relaxed"
-        elif eye_variance > 500 or mouth_variance > 800:
-            return "stress"
-        else:
-            return "normal"
+        # Generate debug overlay
+        debug_image_base64 = ""
+        if face_detected:
+            # Decode image for overlay
+            image_data_clean = image_data.split(',')[1] if ',' in image_data else image_data
+            image_bytes = base64.b64decode(image_data_clean)
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
+            if img is not None:
+                # Draw overlay
+                debug_img = clean_tracker.draw_debug_overlay(
+                    img, gaze, attention, cognitive, engagement, face_detected)
+                
+                # Convert back to base64
+                _, buffer = cv2.imencode('.jpg', debug_img)
+                debug_image_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return gaze, attention, cognitive, engagement, face_detected, debug_image_base64
+        
     except Exception as e:
-        print(f"Error detecting emotion: {str(e)}")
-        return "normal"
+        logger.error(f"Error in face analysis with debug: {e}")
+        gaze, attention, cognitive, engagement, _ = clean_tracker.get_fallback_values()
+        return gaze, attention, cognitive, engagement, False, ""
+
+# Legacy functions for backward compatibility
+def calculate_cognitive_load(gaze_score: float, student_cognitive_limit: int) -> float:
+    """Legacy cognitive load calculation"""
+    return (100 - gaze_score) * 0.8 + 10
+
+def calculate_engagement(attention_score: float) -> float:
+    """Legacy engagement calculation"""
+    return attention_score * 0.9 + 5
+
+def calculate_cognitive_load_legacy(gaze_score: float, student_cognitive_limit: int) -> Tuple[float, str]:
+    """Legacy cognitive load with emotional state"""
+    cognitive_load = calculate_cognitive_load(gaze_score, student_cognitive_limit)
+    
+    if cognitive_load > student_cognitive_limit * 1.2:
+        emotional_state = "overwhelmed"
+    elif cognitive_load > student_cognitive_limit:
+        emotional_state = "stressed"
+    elif cognitive_load > student_cognitive_limit * 0.6:
+        emotional_state = "focused"
+    else:
+        emotional_state = "relaxed"
+    
+    return cognitive_load, emotional_state
+
+def calculate_engagement_legacy(face_attention_score: float) -> float:
+    """Legacy engagement calculation"""
+    return calculate_engagement(face_attention_score)
+
+# For backward compatibility with existing code
+stable_tracker = clean_tracker

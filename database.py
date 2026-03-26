@@ -120,6 +120,7 @@ def init_database():
         CREATE TABLE IF NOT EXISTS metrics_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             student_id INTEGER NOT NULL,
+            course_id INTEGER,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             gaze_score REAL NOT NULL,
             face_attention REAL NOT NULL,
@@ -127,7 +128,8 @@ def init_database():
             emotional_state TEXT NOT NULL,
             progress REAL NOT NULL,
             session_duration REAL,
-            FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+            FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+            FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
         )
     """)
     
@@ -314,8 +316,22 @@ def migrate_database():
                 """, (row[0], row[1], row[2], row[3], row[4], new_status, 0))
 
             print("✅ student_courses table recreated with updated schema")
-        else:
-            print("student_courses table already has correct schema")
+        # Update student_courses table with cognitive load and engagement columns
+        cursor.execute("PRAGMA table_info(student_courses)")
+        courses_columns = [column[1] for column in cursor.fetchall()]
+        
+        # Add cognitive load and engagement columns if they don't exist
+        if 'avg_cognitive_load' not in courses_columns:
+            print("Adding avg_cognitive_load to student_courses table...")
+            cursor.execute("ALTER TABLE student_courses ADD COLUMN avg_cognitive_load REAL DEFAULT 0.0")
+        
+        if 'avg_engagement' not in courses_columns:
+            print("Adding avg_engagement to student_courses table...")
+            cursor.execute("ALTER TABLE student_courses ADD COLUMN avg_engagement REAL DEFAULT 0.0")
+        
+        if 'time_spent_minutes' not in courses_columns:
+            print("Adding time_spent_minutes to student_courses table...")
+            cursor.execute("ALTER TABLE student_courses ADD COLUMN time_spent_minutes INTEGER DEFAULT 0")
         
         # Update courses table with missing columns
         cursor.execute("PRAGMA table_info(courses)")
@@ -375,10 +391,6 @@ def migrate_database():
             print("Adding course_id to metrics_history table...")
             cursor.execute("ALTER TABLE metrics_history ADD COLUMN course_id INTEGER")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_metrics_history_course_id ON metrics_history(course_id)")
-        
-        if 'session_duration' not in metrics_columns:
-            print("Adding session_duration to metrics_history table...")
-            cursor.execute("ALTER TABLE metrics_history ADD COLUMN session_duration REAL")
         
         # Create indexes if they don't exist
         indexes_to_create = [
